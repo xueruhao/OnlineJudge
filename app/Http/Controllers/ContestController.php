@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\CacheHelper;
+use App\Http\Helpers\ProblemHelper;
 use App\View\Components\Contest\ProblemsLink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -20,8 +21,8 @@ class ContestController extends Controller
         /** @var \App\Models\User */
         $user = Auth::user();
 
-        //获取类别
-        $current_cate = DB::table('contest_cate')->find($_GET['cate'] ?? 0);
+        //获取当前所处的类别
+        $current_cate = DB::table('contest_cate')->find(request('cate') ?? 0);
 
         //类别不存在，则自动跳转到默认竞赛(可能是cookie保存的)
         if (!$current_cate) {
@@ -55,11 +56,34 @@ class ContestController extends Controller
             ->orderBy('cc.order') // 3 同一父类下的二级类别，按自身order排序
             ->get();
 
-        //cookie记下默认每页显示的条数
-        if (isset($_GET['perPage'])) {
-            Cookie::queue('unencrypted_contests_default_perpage', $_GET['perPage'], 5256000); // 10 years
+        // 统计子类别数量
+        $current_parent = $categories[0] ?? null;
+        foreach ($categories as $i => &$c) {
+            $c->num_sons = 0; // 每个类别默认有0个孩子类别
+            if ($c->is_parent) {
+                $current_parent = $c; // 记下当前是一个一级类别
+            } else {
+                $current_parent->num_sons++; // 当前是小类别，那么一级类别就要加一个孩子
+            }
+        }
+
+        // cookie记下是否使用简约风格
+        if (request()->has('simple_style')) {
+            Cookie::queue('unencrypted_contests_simple_style', 'on', 525600); // 1 years
         } else {
-            $_GET['perPage'] = (request()->cookie('unencrypted_contests_default_perpage') ?? 10);
+            if (request()->has('perPage')) { // 手动取消了简约风格
+                Cookie::queue(Cookie::forget('unencrypted_contests_simple_style'));
+            } else { // 前台没点简约风格，也没有手动取消，则尝试选择cookie中保存的模式
+                if (request()->hasCookie('unencrypted_contests_simple_style'))
+                    request()->offsetSet('simple_style', (request()->cookie('unencrypted_contests_simple_style')));
+            }
+        }
+
+        //cookie记下默认每页显示的条数
+        if (request()->has('perPage')) {
+            Cookie::queue('unencrypted_contests_default_perpage', request('perPage'), 525600); // 1 years
+        } else {
+            request()->offsetSet('perPage', (request()->cookie('unencrypted_contests_default_perpage') ?? 10));
         }
 
         $contests = DB::table('contests as c')
@@ -70,43 +94,45 @@ class ContestController extends Controller
                 'num_members'
             ])
             ->where('cate_id', $current_cate->id)
-            ->when(in_array($_GET['state'] ?? null, ['waiting', 'running', 'ended']), function ($q) {
-                if ($_GET['state'] == 'ended') return $q->where('end_time', '<', date('Y-m-d H:i:s'));
-                else if ($_GET['state'] == 'waiting') return $q->where('start_time', '>', date('Y-m-d H:i:s'));
+            ->when(in_array(request('state') ?? null, ['waiting', 'running', 'ended']), function ($q) {
+                if (request('state') == 'ended') return $q->where('end_time', '<', date('Y-m-d H:i:s'));
+                else if (request('state') == 'waiting') return $q->where('start_time', '>', date('Y-m-d H:i:s'));
                 else return $q->where('start_time', '<', date('Y-m-d H:i:s'))->where('end_time', '>', date('Y-m-d H:i:s'));
             })
-            ->when(in_array($_GET['judge_type'] ?? null, ['acm', 'oi']), function ($q) {
-                return $q->where('c.judge_type', $_GET['judge_type']);
+            ->when(in_array(request('judge_type') ?? null, ['acm', 'oi']), function ($q) {
+                return $q->where('c.judge_type', request('judge_type'));
             })
-            ->when(isset($_GET['title']) && $_GET['title'] != null, function ($q) {
-                return $q->where('c.title', 'like', '%' . $_GET['title'] . '%');
+            ->when(request()->has('title') && request('title') != null, function ($q) {
+                return $q->where('c.title', 'like', '%' . request('title') . '%');
             })
             ->when(!Auth::check() || !$user->can('admin.contest.view'), function ($q) {
                 return $q->where('c.hidden', 0); // 没登陆 or 登陆了但没权限，则隐藏
             })
             ->orderByDesc('c.order')
-            ->paginate($_GET['perPage'] ?? 10);
+            ->paginate(request('perPage') ?? 10);
 
         return view('contest.contests', compact('contests', 'categories', 'current_cate'));
     }
 
     public function password(Request $request, $id)
     {
+        $contest = DB::table('contests')->find($id);
+        // 标记为正在请求输入密码
+        $require_password = true;
+
         // 验证密码
         if ($request->isMethod('get')) {
-            $contest = DB::table('contests')->select('id', 'judge_type', 'cate_id', 'title', 'public_rank')->find($id);
-            return view('contest.password', compact('contest'));
+            return view('contest.home', compact('contest', 'require_password'));
         }
         if ($request->isMethod('post')) //接收提交的密码
         {
-            $contest = DB::table('contests')->select('id', 'judge_type', 'password', 'cate_id', 'title', 'public_rank')->find($id);
             if ($request->input('pwd') == $contest->password) //通过验证
             {
                 DB::table('contest_users')->updateOrInsert(['contest_id' => $contest->id, 'user_id' => Auth::id()]); //保存
                 return redirect(route('contest.home', $contest->id));
             } else {
                 $msg = trans('sentence.pwd wrong');
-                return view('contest.password', compact('contest', 'msg'));
+                return view('contest.home', compact('contest', 'msg', 'require_password'));
             }
         }
     }
@@ -121,6 +147,7 @@ class ContestController extends Controller
         $contest = DB::table('contests')
             ->select([
                 'id', 'title', 'description', 'cate_id',
+                'sections',
                 'start_time', 'end_time',
                 'judge_type',
                 'access', 'password',
@@ -134,11 +161,20 @@ class ContestController extends Controller
         $problem_link = new ProblemsLink($id, null);
         $problems = $problem_link->problems;
 
-        // 读取标签（有缓存）
-        if ($user->can('admin.contest.view') || time() > strtotime($contest->end_time))
+        // 获取分节信息
+        $sections = json_decode($contest->sections, true) ?? [];
+        if (empty($sections) || $sections[0]['start'] != 0)
+            array_unshift($sections, ['name' => null, 'start' => 0]); // 在最前面添加默认起始小节
+
+        // 读取标签(官方+民间缓存）、题目原始信息【管理员 or 比赛结束】
+        if ($user->can('admin.contest.view') || time() > strtotime($contest->end_time)) {
             foreach ($problems as &$problem) {
-                $problem->tags = ProblemController::get_problem_tags($problem->id);
+                $problem->tags = ProblemHelper::getTags($problem->id);
+                $problem->problem = DB::table('problems')->select(['accepted', 'solved', 'submitted'])->find($problem->id);
+                // 当前用户在本题的提交结果。null,0，1，2，3都视为没做； 4视为Accepted；其余视为答案错误（尝试中）
+                $problem->problem->result = ProblemHelper::getUserResult($problem->id);
             }
+        }
 
         //读取附件，位于storage/app/public/contest/files/$cid/*
         $files = [];
@@ -149,7 +185,13 @@ class ContestController extends Controller
             ];
         }
 
-        return view('contest.home', compact('contest', 'problems', 'files'));
+        // 读取当前竞赛的公告
+        $notices = DB::table('contest_notices')
+            ->where('contest_id', $id)
+            ->orderByDesc('id')
+            ->get();
+
+        return view('contest.home', compact('contest', 'problems', 'sections', 'files', 'notices'));
     }
 
     // 题目详情
@@ -162,7 +204,8 @@ class ContestController extends Controller
                 'start_time', 'end_time',
                 'judge_type', 'public_rank',
                 'allow_lang',
-                'open_discussion'
+                'enable_discussing',
+                'enable_tagging'
             ])->find($id);
 
         // 拿到本题基本信息
@@ -171,7 +214,7 @@ class ContestController extends Controller
             ->select([
                 'cp.index', 'hidden', 'problem_id as id', 'title', 'description',
                 'language', // 代码填空的语言
-                'input', 'output', 'hint', 'source', 'time_limit', 'memory_limit', 'spj',
+                'input', 'output', 'hint', 'source', 'tags', 'time_limit', 'memory_limit', 'spj',
                 'type', 'fill_in_blank',
                 'cp.accepted', 'cp.solved', 'cp.submitted'
             ])
@@ -183,15 +226,15 @@ class ContestController extends Controller
             return back();
 
         // 读取这道题的样例数据
-        $samples = read_problem_data($problem->id);
+        $samples = ProblemHelper::readSamples($problem->id);
 
-        // 特判代码是否存在
-        $hasSpj = file_exists(testdata_path($problem->id . '/spj/spj.cpp'));
+        // 官方标签
+        $problem->tags = json_decode($problem->tags ?? '[]', true); // json => array
 
-        // 获取本题的tag
-        $tags = ProblemController::get_problem_tags($problem->id, 5);
+        // 获取本题的民间收集标签
+        $tags = ProblemHelper::getTags($problem->id, official: false, informal_limit: 5);
 
-        return view('problem.problem', compact('contest', 'problem', 'samples', 'hasSpj', 'tags'));
+        return view('problem.problem', compact('contest', 'problem', 'samples', 'tags'));
     }
 
     // 竞赛提交记录
@@ -217,6 +260,9 @@ class ContestController extends Controller
         if ($contest->hidden && !$user->can('admin.contest.view')) {
             return view('message', ['msg' => '该竞赛处于隐藏状态，不可查看榜单。']);
         }
+
+        // 根据判题类型，决定榜单类型，acm or oi？
+        $judge_type = request('judge_type') ?? $contest->judge_type;
 
         // ======================= 计算榜单结束时间 ======================
         // 注意：普通用户在封榜后受限制
@@ -262,10 +308,10 @@ class ContestController extends Controller
         }
 
         // ====================== 解析用户请求的截止榜单 ==============
-        if (!isset($_GET['end']) || !in_array($_GET['end'], array_keys($rank_time))) // 不合法的参数改为默认值real_time
-            $_GET['end'] = 'real_time';
+        if (!request()->has('end') || !in_array(request('end'), array_keys($rank_time))) // 不合法的参数改为默认值real_time
+            request()->offsetSet('end', 'real_time');
         if ($rank_time['real_time']['able'] === false) // real_time不允许查看，则切换为封榜
-            $_GET['end'] = 'locked_time';
+            request()->offsetSet('end', 'locked_time');
 
 
         // ======================= 获取题单 =========================
@@ -276,7 +322,7 @@ class ContestController extends Controller
 
 
         // ======================== 计算榜单 =======================
-        $calculate_rank = function ($contest, $end_date = null) use ($problems) {
+        $calculate_rank = function ($contest, $end_date = null) use ($problems, $judge_type) {
             // 查询所有提交记录
             $solutions = DB::table('solutions as s')
                 ->join('users', 's.user_id', '=', 'users.id')
@@ -349,7 +395,7 @@ class ContestController extends Controller
             }
 
             // 排序
-            uasort($users, $contest->judge_type == 'acm' ?
+            uasort($users, $judge_type == 'acm' ?
                 function ($x, $y) {
                     if ($x['solved'] != $y['solved'])
                         return $x['solved'] < $y['solved'];
@@ -373,78 +419,33 @@ class ContestController extends Controller
 
         // ========================== 调用榜单 ============================
         $users = [];
-        $key = sprintf('contest:%d:rank:%s:users', $contest->id, $_GET['end']);
-        CacheHelper::clear_cache_if_rejudged($key); // 若发生了重判，先清除缓存，迫使下方业务重新计算榜单
-        if (Cache::has($key))
+        $key = sprintf('contest:%d:rank:%s:users', $contest->id, request('end'));
+        if (CacheHelper::has_key_with_autoclear_if_rejudged($key)) // 若发生了重判，先清除缓存，迫使下方业务重新计算榜单
             $users = Cache::get($key);
         else {
             // 由于榜单计算非常耗时，加锁避免高并发，确保并发时，榜单只被计算一次
             // 举例：若A得到了锁，则会计算结束后释放锁，同时将结果压入缓存；B等到锁后，直接通过remember获取缓存，避免重复计算
             Cache::lock('lock:' . $key, 15)->block(10, function () use ($key, $contest, $calculate_rank, $rank_time, &$users) {
                 // 原子锁的生命周期最长 15秒；等待最多 10 秒后获得锁，否则抛出异常
-                if ($_GET['end'] == 'real_time') // 实时榜单，缓存15秒
+                if (request('end') == 'real_time') // 实时榜单，缓存15秒
                     $users = Cache::remember($key, 15, function () use ($contest, $calculate_rank) {
                         return $calculate_rank($contest);
                     });
                 else // 封榜或终榜，已经固定，长期缓存
                     $users = Cache::remember($key, 3600 * 24 * 30, function () use ($contest, $calculate_rank, $rank_time) {
-                        return $calculate_rank($contest, $rank_time[$_GET['end']]['date']);
+                        return $calculate_rank($contest, $rank_time[request('end')]['date']);
                     });
             });
         }
 
         // =========================== 模糊查询 ========================
         foreach ($users as $uid => &$user) {
-            if (isset($_GET['school']) && $_GET['school'] != '' && stripos($user['school'], $_GET['school']) === false) unset($users[$uid]);
-            if (isset($_GET['class']) && $_GET['class'] != '' && stripos($user['class'], $_GET['class']) === false) unset($users[$uid]);
-            if (isset($_GET['nick']) && $_GET['nick'] != '' && stripos($user['nick'], $_GET['nick']) === false) unset($users[$uid]);
-            if (isset($_GET['username']) && $_GET['username'] != '' && stripos($user['username'], $_GET['username']) === false) unset($users[$uid]);
+            if (request()->has('school') && request('school') != '' && stripos($user['school'], request('school')) === false) unset($users[$uid]);
+            if (request()->has('class') && request('class') != '' && stripos($user['class'], request('class')) === false) unset($users[$uid]);
+            if (request()->has('nick') && request('nick') != '' && stripos($user['nick'], request('nick')) === false) unset($users[$uid]);
+            if (request()->has('username') && request('username') != '' && stripos($user['username'], request('username')) === false) unset($users[$uid]);
         }
-        return view('contest.rank', compact('contest', 'users', 'problems', 'rank_time'));
-    }
-
-    // 竞赛公告
-    public function notices($id)
-    {
-        $notices = DB::table('contest_notices')
-            ->where('contest_id', $id)
-            ->orderByDesc('id')
-            ->get();
-        $contest = DB::table('contests')->find($id);
-        return view('contest.notices', compact('contest', 'notices'));
-    }
-
-    // 读取竞赛公告内容
-    public function get_notice(Request $request, $id)
-    {
-        //post
-        $notice = DB::table('contest_notices')->select(['title', 'content', 'created_at'])->find($request->input('nid'));
-        return json_encode($notice);
-    }
-
-    // 编辑公告
-    public function edit_notice(Request $request, $id)
-    {
-        //post
-        $notice = $request->input('notice');
-        if ($notice['id'] == null) {
-            //new
-            unset($notice['id']);
-            $notice['contest_id'] = $id;
-            DB::table('contest_notices')->insert($notice);
-        } else {
-            //update
-            DB::table('contest_notices')->where('id', $notice['id'])->update($notice);
-        }
-        return back();
-    }
-
-    // 删除竞赛公告
-    public function delete_notice($id, $nid)
-    {
-        //post
-        DB::table('contest_notices')->where('id', $nid)->delete();
-        return back();
+        return view('contest.rank', compact('contest', 'users', 'problems', 'rank_time', 'judge_type'));
     }
 
     // 显示气球列表

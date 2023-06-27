@@ -1,3 +1,8 @@
+<style>
+  .nav-link{
+    color: black !important;
+  }
+</style>
 {{-- 移动端按钮 --}}
 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
   <span class="navbar-toggler-icon"></span>
@@ -32,7 +37,7 @@
     <li class="nav-item">
       <a class="nav-link text-nowrap p-2 @if (preg_match('/^group\S*$/', Route::currentRouteName())) active @endif"
         href="{{ route('groups', ['mygroups' => 'on']) }}">
-        <i class="fa fa-users" aria-hidden="true"></i>&nbsp;{{ trans('main.Groups') }}</i>
+        <i class="fa fa-users" aria-hidden="true">&nbsp;{{ trans('main.Groups') }}</i>
       </a>
     </li>
     <li class="nav-item">
@@ -43,7 +48,7 @@
     </li>
 
     {{-- 下拉菜单 --}}
-    <li class="nav-item dropdown">
+    {{-- <li class="nav-item dropdown">
       <a class="nav-link dropdown-toggle text-nowrap p-2" href="#" id="contestDropdown" data-toggle="dropdown">
         <i class="fa fa-info-circle" aria-hidden="true">&nbsp;{{ trans('main.About') }}</i>
       </a>
@@ -64,7 +69,7 @@
         <a class="dropdown-item" href="https://github.com/winterant/OnlineJudge"
           target="_blank">{{ __('main.Open-Source Code') }}</a>
       </div>
-    </li>
+    </li> --}}
 
   </ul>
 
@@ -77,6 +82,11 @@
 
   {{-- 登陆按钮 --}}
   <ul class="navbar-nav ml-auto float-right">
+    {{-- 深色模式 --}}
+    <li class="nav-item mr-3">
+      <x-dark-mode>{{ __('main.DarkMode') }}</x-dark-mode>
+    </li>
+
     {{-- 语言切换 --}}
     <li class="nav-item dropdown mr-3">
       <a id="navbarDropdown" class="nav-link dropdown-toggle" href="#" role="button" data-toggle="dropdown"
@@ -116,7 +126,7 @@
 
           <a class="dropdown-item" href="{{ route('user', Auth::user()->username) }}">{{ trans('main.Profile') }}</a>
           <a class="dropdown-item"
-            href="{{ route('password_reset', Auth::user()->username) }}">{{ trans('sentence.Reset Password') }}</a>
+            href="{{ route('password_reset', Auth::user()->username) }}">{{ trans('sentence.Modify Password') }}</a>
 
           @can('admin.view')
             <a class="dropdown-item" href="{{ route('admin.home') }}">{{ trans('main.Administration') }}</a>

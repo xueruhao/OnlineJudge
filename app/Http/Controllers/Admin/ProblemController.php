@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Admin;
 use DOMDocument;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\UploadController;
+use App\Http\Helpers\ProblemHelper;
+use App\Jobs\Judger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 
@@ -17,126 +20,44 @@ class ProblemController extends Controller
     public function list()
     {
         $problems = DB::table('problems as p')
-            ->leftJoin('users', 'creator', '=', 'users.id')
-            ->select(
-                'p.id',
-                'title',
-                'type',
-                'source',
-                'spj',
-                'p.created_at',
-                'hidden',
-                'username as creator',
-                'p.solved',
-                'p.accepted',
-                'p.submitted'
-            )
-            ->when(isset($_GET['pid']) && $_GET['pid'] != '', function ($q) {
-                return $q->where('p.id', $_GET['pid']);
-            })
-            ->when(isset($_GET['title']) && $_GET['title'] != '', function ($q) {
-                return $q->where('title', 'like', '%' . $_GET['title'] . '%');
-            })
-            ->when(isset($_GET['source']) && $_GET['source'] != '', function ($q) {
-                return $q->where('source', 'like', '%' . $_GET['source'] . '%');
+            ->leftJoin('users', 'p.user_id', '=', 'users.id')
+            ->select([
+                'p.id', 'title', 'type', 'source', 'spj', 'p.created_at', 'hidden',
+                'username as creator', 'p.solved', 'p.accepted', 'p.submitted'
+            ])
+            ->when(request()->has('kw') && request('kw'), function ($q) {
+                return $q->where('p.id', request('kw'))
+                    ->orWhere('title', 'like', '%' . request('kw') . '%')
+                    ->orWhere('source', 'like', '%' . request('kw') . '%');
             })
             ->orderByDesc('p.id')
-            ->paginate(isset($_GET['perPage']) ? $_GET['perPage'] : 100);
+            ->paginate(request('perPage') ?? 100);
         return view('admin.problem.list', compact('problems'));
     }
 
     //管理员添加题目
-    public function add(Request $request)
+    public function create(Request $request)
     {
-        //提供加题界面
-        if ($request->isMethod('get')) {
-            $pageTitle = '添加题目';
-            return view('admin.problem.edit', compact('pageTitle'));
-        }
-        //提交一条新题目
-        if ($request->isMethod('post')) {
-            $pid = DB::table('problems')->insertGetId(['creator' => Auth::id()]);
-            return $this->update($request, $pid, true);
-        }
+        $pageTitle = '添加题目';
+        return view('admin.problem.edit', compact('pageTitle'));
     }
 
     //管理员修改题目
     public function update(Request $request, $id)
     {
-        //get提供修改界面
-        if ($request->isMethod('get')) {
-            $pageTitle = '修改题目';
-            $problem = DB::table('problems')->find($id);  // 提取出要修改的题目
-            if ($problem == null)
-                return view('message', ['msg' => '该题目不存在或操作有误!', 'success' => false, 'is_admin' => true]);
+        $pageTitle = '修改题目';
+        $problem = DB::table('problems')->find($id);  // 提取出要修改的题目
+        if ($problem == null)
+            return view('message', ['msg' => '该题目不存在或操作有误!', 'success' => false, 'is_admin' => true]);
 
-            $samples = read_problem_data($problem->id);
-            //看看有没有特判文件
-            $spj_exist = file_exists(testdata_path($problem->id . '/spj/spj.cpp'));
-            return view('admin.problem.edit', compact('pageTitle', 'problem', 'samples', 'spj_exist'));
-        }
-
-        // 提交修改好的题目
-        if ($request->isMethod('post')) {
-            $problem = DB::table('problems')->find($id);  // 提取出要修改的题目
-            // 读取表单
-            $problem = $request->input('problem');
-            if (!isset($problem['spj'])) // 默认不特判
-                $problem['spj'] = 0;
-
-            $problem['updated_at'] = date('Y-m-d H:i:s');
-            $update_ret = DB::table('problems')
-                ->where('id', $id)
-                ->update($problem);
-            if (!$update_ret)
-                return view('message', ['msg' => '没有任何数据被修改，请检查操作是否合理!', 'success' => false, 'is_admin' => true]);
-
-            ///保存样例、spj
-            $samp_ins = $request->input('sample_ins');
-            $samp_outs = $request->input('sample_outs');
-            save_problem_data($id, (array)$samp_ins, (array)$samp_outs, true); //保存样例
-
-            $msg = sprintf(
-                '题目<a href="%s" target="_blank">%d</a>修改成功！ <a href="%s">上传测试数据</a>',
-                route('problem', $id),
-                $id,
-                route('admin.problem.test_data', 'pid=' . $id)
-            );
-
-            $spjFile = $request->file('spj_file');
-            if ($spjFile != null && $spjFile->isValid()) {
-                $spjFile->move(testdata_path($id . '/spj'), 'spj.cpp');  // 保存特判代码文件spj.cpp
-                // $spj_compile = compile_cpp(testdata_path($id . '/spj/spj.cpp'), testdata_path($id . '/spj/spj')); //编译特判代码
-                // $msg .= '<br><br>[ 特判程序编译信息 ]:<br>' . $spj_compile;
-            }
-            return view('message', ['msg' => $msg, 'success' => true, 'is_admin' => true]);
-        }
-    }
-
-    public function get_spj($pid)
-    {
-        header('Content-type: text/plain; charset=UTF-8');
-        header("Content-Disposition:attachement;filename=spj" . $pid . ".cpp"); //提示下载
-        $filepath = testdata_path($pid . '/spj/spj.cpp');
-        $spj_code = is_file($filepath) ? file_get_contents($filepath) : null;
-        return $spj_code;
-    }
-
-    //管理员修改题目状态  0密封 or 1公开
-    public function update_hidden(Request $request)
-    {
-        if ($request->isMethod('post')) {
-            $pids = $request->input('pids') ?: [];
-            $hidden = $request->input('hidden');
-            return DB::table('problems')
-                ->whereIn('id', $pids)
-                ->update(['hidden' => $hidden]);
-        }
-        return 0;
+        $problem->tags = implode(',', json_decode($problem->tags ?? '[]', true)); // json => string
+        $samples = ProblemHelper::readSamples($problem->id);
+        $spj_code = ProblemHelper::readSpj($problem->id);
+        return view('admin.problem.edit', compact('pageTitle', 'problem', 'samples', 'spj_code'));
     }
 
 
-    //管理标签
+    // ======================== 管理题目标签 ===========================
     public function tags()
     {
         $tags = DB::table('tag_marks')
@@ -144,58 +65,44 @@ class ProblemController extends Controller
             ->join('tag_pool', 'tag_id', '=', 'tag_pool.id')
             ->join('problems', 'problem_id', '=', 'problems.id')
             ->select('tag_marks.id', 'problem_id', 'title', 'username', 'nick', 'name', 'tag_marks.created_at')
-            ->when(isset($_GET['pid']) && $_GET['pid'] != '', function ($q) {
-                return $q->where('problem_id', $_GET['pid']);
+            ->when(request()->has('pid') && request('pid') != '', function ($q) {
+                return $q->where('problem_id', request('pid'));
             })
-            ->when(isset($_GET['username']) && $_GET['username'] != '', function ($q) {
-                return $q->where('username', $_GET['username']);
+            ->when(request()->has('username') && request('username') != '', function ($q) {
+                return $q->where('username', request('username'));
             })
-            ->when(isset($_GET['tag_name']) && $_GET['tag_name'] != '', function ($q) {
-                return $q->where('name', 'like', '%' . $_GET['tag_name'] . '%');
+            ->when(request()->has('tag_name') && request('tag_name') != '', function ($q) {
+                return $q->where('name', 'like', '%' . request('tag_name') . '%');
             })
             ->orderByDesc('id')
-            ->paginate(isset($_GET['perPage']) ? $_GET['perPage'] : 20);
+            ->paginate(request()->has('perPage') ? request('perPage') : 20);
         return view('admin.problem.tags', compact('tags'));
     }
-    public function tag_delete(Request $request)
-    {
-        $tids = $request->input('tids');
-        return DB::table('tag_marks')->whereIn('id', $tids)->delete();
-    }
+
     public function tag_pool()
     {
-        $tag_pool = DB::table('tag_pool')
-            ->select('id', 'name', 'hidden', 'created_at')
-            ->when(isset($_GET['tag_name']) && $_GET['tag_name'] != '', function ($q) {
-                return $q->where('name', 'like', '%' . $_GET['tag_name'] . '%');
+        $tag_pool = DB::table('tag_pool as tp')
+            ->leftJoin('users as u', 'u.id', '=', 'user_id')
+            ->select('tp.id', 'tp.name', 'tp.hidden', 'u.username as creator', 'tp.created_at')
+            ->when(request()->has('tag_name') && request('tag_name') != '', function ($q) {
+                return $q->where('tp.name', 'like', '%' . request('tag_name') . '%');
             })
-            ->orderByDesc('id')
-            ->paginate(isset($_GET['perPage']) ? $_GET['perPage'] : 20);
+            ->orderByDesc('tp.id')
+            ->paginate(request()->has('perPage') ? request('perPage') : 20);
         return view('admin.problem.tag_pool', compact('tag_pool'));
     }
-    public function tag_pool_delete(Request $request)
-    {
-        $tids = $request->input('tids') ?: [];
-        DB::table('tag_marks')->whereIn('tag_id', $tids)->delete(); //先删除用户提交的标记
-        return DB::table('tag_pool')->whereIn('id', $tids)->delete();
-    }
-    public function tag_pool_hidden(Request $request)
-    {
-        $tids = $request->input('tids') ?: [];
-        $hidden = $request->input('hidden');
-        return DB::table('tag_pool')->whereIn('id', $tids)->update(['hidden' => $hidden]);
-    }
 
 
-    //测试数据管理页面
+    // ============================== 测试数据管理 ==============================
+    // 测试数据管理页面 get
     public function test_data()
     {
         //读取数据文件
         $tests = [];
-        if (isset($_GET['pid'])) {
-            if (!DB::table('problems')->where('id', $_GET['pid'])->exists())
-                return view('message', ['msg' => '题目' . $_GET['pid'] . '不存在', 'success' => false, 'is_admin' => true]);
-            foreach (readAllFilesPath(testdata_path($_GET['pid'] . '/test')) as $filepath) {
+        if (request()->has('pid')) {
+            if (!DB::table('problems')->where('id', request('pid'))->exists())
+                return view('message', ['msg' => '题目' . request('pid') . '不存在', 'success' => false, 'is_admin' => true]);
+            foreach (get_all_files_path(testdata_path(request('pid') . '/test')) as $filepath) {
                 $name = pathinfo($filepath, PATHINFO_FILENAME);  //文件名
                 $ext = pathinfo($filepath, PATHINFO_EXTENSION);    //拓展名
                 $tests[] = ['index' => $name, 'filename' => $name . '.' . $ext, 'size' => filesize($filepath)];
@@ -207,7 +114,7 @@ class ProblemController extends Controller
         return view('admin.problem.test_data', compact('tests'));
     }
 
-    // ajax
+    // ajax post
     public function upload_data(Request $request)
     {
         $pid = $request->input('pid');
@@ -227,45 +134,43 @@ class ProblemController extends Controller
         return 1;
     }
 
-    //ajax
-    public function get_data(Request $request)
-    {
-        $pid = $request->input('pid');
-        $filename = $request->input('filename');
-        $filename = str_replace('../', '', $filename);
-        $filename = str_replace('/', '', $filename);
-        $data = file_get_contents(testdata_path($pid . '/test/' . $filename));
-        return json_encode($data);
-    }
-
-    //form
+    // form post
     public function update_data(Request $request)
     {
         $pid = $request->input('pid');
         $filename = $request->input('filename');
         $filename = str_replace('../', '', $filename);
         $filename = str_replace('/', '', $filename);
-        $content = $request->input('content');
+        $content = $request->input('testdata_content');
         file_put_contents(testdata_path($pid . '/test/' . $filename), str_replace(["\r\n", "\r", "\n"], PHP_EOL, $content));
         return back();
     }
 
-    //ajax
-    public function delete_data(Request $request)
-    {
-        $pid = $request->input('pid');
-        $fnames = $request->input('fnames');
-        foreach ($fnames as $filename)
-            if (file_exists(testdata_path($pid . '/test/' . $filename)))
-                unlink(testdata_path($pid . '/test/' . $filename));
-        return 1;
-    }
 
+    // =================== 题目的导入与导出 ========================
+    // get
     public function import_export()
     {
-        return view('admin.problem.import_export');
+        $files = Storage::allFiles('temp/exported');
+        $files = array_reverse($files);
+        $history_xml = [];
+        foreach ($files as $path) {
+            if (time() - Storage::lastModified($path) > 3600 * 24 * 365) // 超过365天的数据删除掉
+                Storage::delete($path);
+            else {
+                $info = pathinfo($path);
+                preg_match('/\[(\S+?)\]/', $info['filename'], $matches);
+                $history_xml[] = [
+                    'name' => $info['basename'],
+                    'creator' => $matches[1] ?? '',
+                    'created_at' => date('Y-m-d H:i:s', Storage::lastModified($path))
+                ];
+            }
+        }
+        return view('admin.problem.import_export', compact('history_xml'));
     }
 
+    // post
     public function import(Request $request)
     {
         if (!$request->isMethod('post')) {
@@ -273,12 +178,12 @@ class ProblemController extends Controller
         }
 
         $uc = new UploadController;
-        $isUploaded = $uc->upload($request, storage_path('app/xml_temp'), 'import_problems.xml');
+        $isUploaded = $uc->upload($request, storage_path('app/temp/import'), 'import_problems.xml');
         if (!$isUploaded) return 0;
 
         //读取xml->导入题库
         ini_set('memory_limit', '4096M'); //php单线程最大内存占用，默认128M不够用
-        $xmlDoc = simplexml_load_file(storage_path('app/xml_temp/import_problems.xml'), null, LIBXML_NOCDATA | LIBXML_PARSEHUGE);
+        $xmlDoc = simplexml_load_file(storage_path('app/temp/import/import_problems.xml'), null, LIBXML_NOCDATA | LIBXML_PARSEHUGE);
         $searchNodes = $xmlDoc->xpath("/*/item");
         $first_pid = null;
         foreach ($searchNodes as $node) {
@@ -290,9 +195,17 @@ class ProblemController extends Controller
                 'hint'        => $node->hint,
                 'source'      => $node->source,
                 'spj'         => $node->spj ? 1 : 0,
+                'tags'        => isset($node->tags) && $node->tags != null ? json_encode(
+                    array_map(
+                        function ($v) {
+                            return trim($v);
+                        },
+                        explode(',', $node->tags)
+                    )
+                ) : null,
                 'time_limit'  => $node->time_limit * (strtolower($node->time_limit->attributes()->unit) == 's' ? 1000 : 1), //本oj用ms
                 'memory_limit' => $node->memory_limit / (strtolower($node->memory_limit->attributes()->unit) == 'kb' ? 1024 : 1),
-                'creator'     => Auth::id()
+                'user_id'     => Auth::id()
             ];
             //保存图片
             foreach ($node->img as $img) {
@@ -306,38 +219,46 @@ class ProblemController extends Controller
             }
             $pid = DB::table('problems')->insertGetId($problem);
             if (!$first_pid) $first_pid = $pid;
-            //下面保存sample，test，spj
-            $samp_inputs = (array)$node->children()->sample_input;
-            $samp_outputs = (array)$node->children()->sample_output;
-            $test_inputs = (array)$node->children()->test_input;
-            $test_outputs = (array)$node->children()->test_output;
-            save_problem_data($pid, $samp_inputs, $samp_outputs, true); //保存样例
-            save_problem_data($pid, $test_inputs, $test_outputs, false); //保存测试数据
-            if ($node->spj) {
-                $dir = testdata_path($pid . '/spj'); // 特判文件夹
-                if (!is_dir($dir))
-                    mkdir($dir, 0777, true);  // 文件夹不存在则创建
-                file_put_contents($dir . '/spj.cpp', $node->spj);  // 保存代码文件
-                // compile_cpp($dir . '/spj.cpp', $dir . '/spj');  // 编译特判代码
+            // 保存sample
+            $samp_inputs = (array)($node->children()->sample_input);
+            $samp_outputs = (array)($node->children()->sample_output);
+            ProblemHelper::saveSamples($pid, $samp_inputs, $samp_outputs); //保存样例
+            // 保存test
+            $test_inputs = [];
+            foreach ($node->children()->test_input as $t) {
+                if ($fname = ((string)($t->attributes()->filename) ?? false))
+                    $test_inputs[$fname] = (string)$t;
+                else $test_inputs[] = (string)$t;
             }
+            ProblemHelper::saveTestDatas($pid, $test_inputs, true);
+            $test_outputs = [];
+            foreach ($node->children()->test_output as $t) {
+                if ($fname = ((string)($t->attributes()->filename) ?? false))
+                    $test_outputs[$fname] = (string)$t;
+                else $test_outputs[] = (string)$t;
+            }
+            ProblemHelper::saveTestDatas($pid, $test_outputs); //保存测试数据
+
+            // 保存spj
+            if ($node->spj ?? false)
+                ProblemHelper::saveSpj($pid, $node->spj);
+
+            // 不存在的标签插入到标签库
+            if (isset($node->tags) && $node->tags != null)
+                foreach (explode(',', $node->tags) as $tag_name) {
+                    DB::table('tag_pool')->updateOrInsert(['name' => trim($tag_name)], ['name' => trim($tag_name), 'user_id' => Auth::id()]);
+                }
+            // ================================================================
+
             foreach ($node->solution as $solu) {
                 $language = $solu->attributes()->language;
-                if ($language == 'Python') $language .= '3';  //本oj只支持python3
-                $langs = [
-                    'C' => 0,
-                    'c' => 0,
-                    'C++' => 1,
-                    'c++' => 1,
-                    'CPP' => 1,
-                    'cpp' => 1,
-                    'Java' => 2,
-                    'java' => 2,
-                    'Python3' => 3,
-                ];
-                $lang = ($langs[(string)($solu->attributes()->language)] ?? false);
+                if ($language == 'Python') $language .= '3';  // 本oj只支持python3
+                if ($language == 'C++') $language .= '14 -O2';    // 默认C++14 -O2
+                if ($language == 'C') $language .= '17';      // 默认C17
+                $lang = array_search($language, config('judge.lang')); // 查出编程语言的代号
                 //保存提交记录
                 if ($lang !== false) {
-                    DB::table('solutions')->insert([
+                    $solution = [
                         'problem_id'    => $pid,
                         'contest_id'    => -1,
                         'user_id'       => Auth::id(),
@@ -345,37 +266,37 @@ class ProblemController extends Controller
                         'language'      => $lang,
                         'submit_time'   => date('Y-m-d H:i:s'),
                         'judge_type'    => 'oi', //acm,oi
-                        'ip'            => $request->getClientIp(),
+                        'ip'            => ($guest_ip = get_client_real_ip()),
+                        'ip_loc'        => get_ip_address($guest_ip),
                         'code_length'   => strlen($solu),
-                        'code'          => $solu,
-                    ]);
+                        'code'          => (string)$solu,
+                    ];
+                    $solution['id'] = DB::table('solutions')->insertGetId($solution);
+                    // 发送到判题队列
+                    dispatch(new Judger($solution));
                 }
             }
         }
-        Storage::deleteDirectory("xml_temp"); //删除已经没用的xml文件
+        Storage::deleteDirectory("temp/import"); //删除已经没用的xml文件
         return $first_pid . ($first_pid < $pid ? '-' . $pid : '');
     }
 
-
-    // 导出题目时，描述、题目数据等可能含有xml不支持的特殊字符，过滤掉
-    private function filter_export_characters($str)
-    {
-        return preg_replace('/[\\x00-\\x08\\x0b-\\x0c\\x0e-\\x1f]/', '', $str);
-    }
+    // post
     public function export(Request $request)
     {
+        // 辅助函数：导出题目时，描述、题目数据等可能含有xml不支持的特殊字符，过滤掉
+        $filter_special_characters = function ($str) {
+            return preg_replace('/[\\x00-\\x08\\x0b-\\x0c\\x0e-\\x1f]/', '', $str);
+        };
+
+        // 只接受post请求
         if (!$request->isMethod('post')) {
             return redirect(route('admin.problem.import_export'));
         }
         ini_set('memory_limit', '2G'); //php单线程最大内存占用，默认128M不够用
         //处理题号,获取题目
-        $problem_ids = $request->input('pids');
-        foreach (explode(PHP_EOL, $problem_ids) as &$item) {
-            $line = explode('-', $item);
-            if (count($line) == 1) $pids[] = intval($line[0]);
-            else foreach (range(intval($line[0]), intval(($line[1]))) as $i) $pids[] = $i;
-        }
-        $problems = DB::table("problems")->whereIn('id', $pids)->orderBy('id')->get();
+        $problem_ids = decode_str_to_array($request->input('pids'));
+        $problems = DB::table("problems")->whereIn('id', $problem_ids)->orderBy('id')->get();
 
         // 生成xml
         $dom = new DOMDocument("1.0", "UTF-8");
@@ -383,10 +304,10 @@ class ProblemController extends Controller
         // 作者信息 generator标签
         $generator = $dom->createElement('generator');
         $attr = $dom->createAttribute('name');
-        $attr->appendChild($dom->createTextNode('LDUOJ'));
+        $attr->appendChild($dom->createTextNode('SparkOJ(LDUOJ)'));
         $generator->appendChild($attr);
         $attr = $dom->createAttribute('url');
-        $attr->appendChild($dom->createTextNode('https://github.com/iamwinter/LDUOnlineJudge'));
+        $attr->appendChild($dom->createTextNode('https://github.com/winterant/OnlineJudge'));
         $generator->appendChild($attr);
         $root->appendChild($generator);
         //遍历题目，生成xml字符串
@@ -394,7 +315,7 @@ class ProblemController extends Controller
             $item = $dom->createElement('item');
             //title
             $title = $dom->createElement('title');
-            $title->appendChild($dom->createCDATASection($this->filter_export_characters($problem->title)));
+            $title->appendChild($dom->createCDATASection($filter_special_characters($problem->title)));
             $item->appendChild($title);
             //time_limit
             $unit = $dom->createAttribute('unit');
@@ -412,55 +333,69 @@ class ProblemController extends Controller
             $item->appendChild($memory_limit);
             //description
             $description = $dom->createElement('description');
-            $description->appendChild($dom->createCDATASection($this->filter_export_characters($problem->description)));
+            $description->appendChild($dom->createCDATASection($filter_special_characters($problem->description)));
             $item->appendChild($description);
             //input
             $input = $dom->createElement('input');
-            $input->appendChild($dom->createCDATASection($this->filter_export_characters($problem->input)));
+            $input->appendChild($dom->createCDATASection($filter_special_characters($problem->input)));
             $item->appendChild($input);
             //output
             $output = $dom->createElement('output');
-            $output->appendChild($dom->createCDATASection($this->filter_export_characters($problem->output)));
+            $output->appendChild($dom->createCDATASection($filter_special_characters($problem->output)));
             $item->appendChild($output);
             //hint
             $hint = $dom->createElement('hint');
-            $hint->appendChild($dom->createCDATASection($this->filter_export_characters($problem->hint)));
+            $hint->appendChild($dom->createCDATASection($filter_special_characters($problem->hint)));
             $item->appendChild($hint);
             //source
             $source = $dom->createElement('source');
-            $source->appendChild($dom->createCDATASection($this->filter_export_characters($problem->source)));
+            $source->appendChild($dom->createCDATASection($filter_special_characters($problem->source)));
             $item->appendChild($source);
 
             //sample_input & sample_output
-            foreach (read_problem_data($problem->id) as $sample) {
+            foreach (ProblemHelper::readSamples($problem->id) as $sample) {
                 $sample_input = $dom->createElement('sample_input');
-                $sample_input->appendChild($dom->createCDATASection($this->filter_export_characters($sample[0])));
+                $sample_input->appendChild($dom->createCDATASection($filter_special_characters($sample['in'])));
                 $item->appendChild($sample_input);
                 $sample_output = $dom->createElement('sample_output');
-                $sample_output->appendChild($dom->createCDATASection($this->filter_export_characters($sample[1])));
+                $sample_output->appendChild($dom->createCDATASection($filter_special_characters($sample['out'])));
                 $item->appendChild($sample_output);
             }
             //test_input & test_output
-            foreach (read_problem_data($problem->id, false) as $test) {
+            foreach (ProblemHelper::getTestDataFilenames($problem->id) as $fname => $test) {
+                // input
+                $text = file_get_contents(testdata_path($problem->id . '/test/' . $test['in']));
+                $attr = $dom->createAttribute('filename');
+                $attr->appendChild($dom->createTextNode($fname . '.in')); // 文件名
                 $test_input = $dom->createElement('test_input');
-                $test_input->appendChild($dom->createCDATASection($this->filter_export_characters($test[0])));
+                $test_input->appendChild($attr);
+                $test_input->appendChild($dom->createCDATASection($filter_special_characters($text)));
                 $item->appendChild($test_input);
+                // output
+                $text = file_get_contents(testdata_path($problem->id . '/test/' . $test['out']));
+                $attr = $dom->createAttribute('filename');
+                $attr->appendChild($dom->createTextNode($fname . '.out')); // 文件名
                 $test_output = $dom->createElement('test_output');
-                $test_output->appendChild($dom->createCDATASection($this->filter_export_characters($test[1])));
+                $test_output->appendChild($attr);
+                $test_output->appendChild($dom->createCDATASection($filter_special_characters($text)));
                 $item->appendChild($test_output);
             }
             //spj language
             if ($problem->spj) {
-                $filepath = testdata_path($problem->id . '/spj/spj.cpp');
-                $spj_code = is_file($filepath) ? file_get_contents($filepath) : '';
+                $spj_code = ProblemHelper::readSpj($problem->id);
 
                 $cpp = $dom->createElement('spj');
                 $attr = $dom->createAttribute('language');
-                $attr->appendChild($dom->createTextNode('C++'));
+                $attr->appendChild($dom->createTextNode(config("judge.lang.{$problem->spj_language}"))); // spj 语言
                 $cpp->appendChild($attr);
                 $cpp->appendChild($dom->createCDATASection($spj_code));
                 $item->appendChild($cpp);
             }
+            // tags
+            $tags = $dom->createElement('tags');
+            $tags->appendChild($dom->createCDATASection(implode(',', json_decode($problem->tags ?? '[]', true))));
+            $item->appendChild($tags);
+
             //solution language
             $solutions = DB::table('solutions')
                 ->select('language', 'code')
@@ -469,7 +404,7 @@ class ProblemController extends Controller
             foreach ($solutions as $sol) {
                 $solution = $dom->createElement('solution');
                 $attr = $dom->createAttribute('language');
-                $attr->appendChild($dom->createTextNode(config('oj.judge_lang.' . $sol->language)));
+                $attr->appendChild($dom->createTextNode(config('judge.lang.' . $sol->language)));
                 $solution->appendChild($attr);
                 $solution->appendChild($dom->createCDATASection($sol->code));
                 $item->appendChild($solution);
@@ -494,16 +429,24 @@ class ProblemController extends Controller
             $root->appendChild($item);
         }
         $dom->appendChild($root);
-        $dir = "temp/problem_export_temp/";
-        if (!Storage::exists($dir . Auth::id()))
-            Storage::makeDirectory($dir . Auth::id());
-        foreach (Storage::allFiles($dir) as $fpath) {  //删除3*24小时以上的文件
-            if (time() - Storage::lastModified($fpath) > 3600 * 24 * 3)
+
+        // 创建文件夹，顺便删除过期文件
+        $dir = "temp/exported";
+        if (!Storage::exists($dir))
+            Storage::makeDirectory($dir);
+        foreach (Storage::allFiles($dir) as $fpath) {  //删除365天以上的文件
+            if (time() - Storage::lastModified($fpath) > 3600 * 24 * 365)
                 Storage::delete($fpath);
         }
-        //  $filename=str_replace("\r",',',str_replace("\n",',',str_replace("\r\n",',',$problem_ids))).".xml";
-        $filename = str_replace(["\r\n", "\r", "\n"], ',', $problem_ids) . ".xml";
-        $dom->save(storage_path("app/" . $dir . Auth::id() . '/' . $filename));
-        return Storage::download($dir . Auth::id() . '/' . $filename);
+        // 根据传入题号命名文件名
+        $filename = str_replace(["\r\n", "\r", "\n"], ',', trim($request->input('pids')));
+        $filename = sprintf('%s[%s]%s', date('YmdHis'), Auth::user()->username, $filename);
+        if (strlen($filename) > 36) // 文件名过长用省略号代替
+            $filename = substr($filename, 0, 36) . '...';
+        $filepath = sprintf('%s/%s.xml', $dir, $filename);
+
+        //  保存文件，并提供下载链接
+        $dom->save(Storage::path($filepath));
+        return Storage::download($filepath);
     }
 }

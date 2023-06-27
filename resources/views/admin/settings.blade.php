@@ -1,4 +1,4 @@
-@extends('layout-admin')
+@extends('layouts.admin')
 
 @section('title', '设置 | 后台管理')
 
@@ -9,6 +9,95 @@
   <hr>
 
   <div class="container">
+    <div class="my-container bg-white">
+      <h4>图标与Logo</h4>
+      <hr>
+      <form>
+        <div class="input-group">
+          <div class="input-group-prepend mr-3">
+            <span class="input-group-text">网站图标：</span>
+          </div>
+          <input type="file" id="imgFaviconInput" hidden>
+          <div class="input-group-prepend mr-3">
+            <img id="previewImgFavicon" height="100rem" class="border" src="{{ get_icon_url('favicon') }}" alt="预览">
+          </div>
+          <div class="input-group-prepend mr-3">
+            <span class="input-group-text">
+              <button type="button" class="btn btn-secondary" onclick="$('#imgFaviconInput').click()">更换图片</button>
+            </span>
+          </div>
+          <div class="input-group-prepend">
+            <span class="input-group-text">
+              <button type="button" class="btn btn-secondary"
+                onclick="Notiflix.Confirm.Show('恢复默认','确定恢复默认图标？','确定','取消',function(){set_icon('favicon',null);$('#previewImgFavicon').attr('src', '{{ asset_ts('favicon.ico') }}')})">恢复默认</button>
+            </span>
+          </div>
+        </div>
+        <div class="input-group mt-2">
+          <div class="input-group-prepend mr-3">
+            <span class="input-group-text">网站徽标：</span>
+          </div>
+          <input type="file" id="imgLogoInput" hidden>
+          <div class="input-group-prepend mr-3">
+            <img id="previewImgLogo" height="100rem" class="border" src="{{ get_icon_url('logo') }}" alt="预览">
+          </div>
+          <div class="input-group-prepend mr-3">
+            <span class="input-group-text">
+              <button type="button" class="btn btn-secondary" onclick="$('#imgLogoInput').click()">更换图片</button>
+            </span>
+          </div>
+          <div class="input-group-prepend">
+            <span class="input-group-text">
+              <button type="button" class="btn btn-secondary"
+                onclick="Notiflix.Confirm.Show('恢复默认','确定恢复默认Logo？','确定','取消',function(){set_icon('logo',null);$('#previewImgLogo').attr('src', '{{ asset_ts('favicon.ico') }}')})">恢复默认</button>
+            </span>
+          </div>
+        </div>
+      </form>
+      <script>
+        function set_icon(name, file) {
+          let formData = new FormData()
+          formData.append(name, file)
+          $.ajax({
+            method: 'post',
+            url: "{{ route('api.admin.settings.set_icon') }}",
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(ret) {
+              console.log(ret)
+              if (ret.ok) {
+                Notiflix.Notify.Success(ret.msg)
+              } else {
+                Notiflix.Notify.Failure(ret.msg)
+              }
+            }
+          })
+        }
+        // 当选择文件时，预览图像
+        $('#imgFaviconInput').on('change', function() {
+          if (this.files && this.files[0]) {
+            let fileReader = new FileReader();
+            fileReader.onload = function(e) {
+              $('#previewImgFavicon').attr('src', e.target.result)
+            };
+            fileReader.readAsDataURL(this.files[0])
+            set_icon('favicon', this.files[0])
+          }
+        })
+        $('#imgLogoInput').on('change', function() {
+          if (this.files && this.files[0]) {
+            let fileReader = new FileReader();
+            fileReader.onload = function(e) {
+              $('#previewImgLogo').attr('src', e.target.result)
+            };
+            fileReader.readAsDataURL(this.files[0])
+            set_icon('logo', this.files[0])
+          }
+        })
+      </script>
+    </div>
+
     <div class="my-container bg-white">
       <h4>基本信息</h4>
       <hr>
@@ -23,19 +112,12 @@
         </div>
         <div class="form-inline mt-2">
           <div class="input-group-prepend">
-            <span class="input-group-text">前台语言：</span>
+            <span class="input-group-text">默认语言：</span>
           </div>
           <select name="APP_LOCALE" class="form-control px-3">
             <option value="en">English</option>
             <option value="zh-CN" @if (get_setting('APP_LOCALE') == 'zh-CN') selected @endif>简体中文</option>
           </select>
-        </div>
-        <div class="input-group mt-2">
-          <div class="input-group-prepend">
-            <span class="input-group-text">滚动公告：</span>
-          </div>
-          <input type="text" name="marquee_notice_id" value="{{ get_setting('marquee_notice_id') }}"
-            class="form-control" autocomplete="off" placeholder="请填写一个公告编号，对应公告将在前台页面顶端滚动显示；不填则无滚动公告">
         </div>
         <div class="input-group mt-2">
           <div class="input-group-prepend">
@@ -48,12 +130,28 @@
           <div class="input-group-prepend">
             <span class="input-group-text">定制页脚：</span>
           </div>
-          <textarea type="text" name="footer_customized_part" class="" autocomplete="off"
-            placeholder="您可以自己编写html代码，该内容将显示在页脚时间下方。支持bootstrap/jquery" rows="6" cols="180">{{ get_setting('footer_customized_part') }}</textarea>
+          <textarea type="text" name="footer_customized_part" class="w-100" autocomplete="off"
+            placeholder="您可以自己编写html代码，该内容将显示在页脚时间下方。支持bootstrap/jquery" rows="5">{{ get_setting('footer_customized_part') }}</textarea>
         </div>
         <button class="btn text-white mt-4 bg-success">保存</button>
       </form>
     </div>
+
+    <div class="my-container bg-white">
+      <h4>公告设置</h4>
+      <hr>
+      <form onsubmit="return submit_settings(this)" method="post">
+        <div class="input-group mt-2">
+          <div class="input-group-prepend">
+            <span class="input-group-text">滚动公告：</span>
+          </div>
+          <input type="text" name="marquee_notice_id" value="{{ get_setting('marquee_notice_id') }}"
+            class="form-control" autocomplete="off" placeholder="请填写一个公告编号，对应公告将在前台页面顶端滚动显示；不填则无滚动公告">
+        </div>
+        <button class="btn text-white mt-4 bg-success">保存</button>
+      </form>
+    </div>
+
     <form id="form_switch" onsubmit="return submit_settings(this)" method="post">
       @csrf
       <div class="my-container bg-white">
@@ -71,12 +169,6 @@
             value="{{ get_setting('web_page_loading_animation') ? 'true' : 'false' }}" type="text" hidden>
           <span>页面载入动画，页面加载过程中以半透明幕布覆盖全屏，中部显示加载动画</span>
         </div>
-        <div class="form-group">
-          <input id="web_page_dark_mode" type="checkbox">
-          <input name="web_page_dark_mode" value="{{ get_setting('web_page_dark_mode') ? 'true' : 'false' }}"
-            type="text" hidden>
-          <span>允许客户端切换深色模式（客户端首次访问时将跟随操作系统主题深色模式/浅色模式）</span>
-        </div>
       </div>
 
       <div class="my-container bg-white">
@@ -84,8 +176,8 @@
         <hr>
         <div class="form-group">
           <input id="login_reg_captcha" type="checkbox">
-          <input name="login_reg_captcha" value="{{ get_setting('login_reg_captcha') ? 'true' : 'false' }}" type="text"
-            hidden>
+          <input name="login_reg_captcha" value="{{ get_setting('login_reg_captcha') ? 'true' : 'false' }}"
+            type="text" hidden>
           <span>在用户登陆或注册时，使用图片验证码</span>
         </div>
         <div class="form-group">
@@ -123,17 +215,17 @@
             type="text" hidden>
           <span>是否在题目页面显示讨论版</span>
         </div>
-        <div class="form-group">
+        {{-- <div class="form-group">
           <input id="post_discussion" type="checkbox">
           <input name="post_discussion" value="{{ get_setting('post_discussion') ? 'true' : 'false' }}" type="text"
             hidden>
           <span>是否允许普通用户在题目讨论版发言（管理员不受限制）</span>
-        </div>
+        </div> --}}
         <div class="form-group">
           <input id="problem_show_tag_collection" type="checkbox">
           <input name="problem_show_tag_collection"
             value="{{ get_setting('problem_show_tag_collection') ? 'true' : 'false' }}" type="text" hidden>
-          <span>在题目页面是否向已解决该问题的用户收集标签（该题涉及知识点）</span>
+          <span>在题目页面是否向已解决该问题的用户收集标签（该题涉及知识点）（竞赛中的题目不受此约束）</span>
         </div>
         <div class="form-group">
           <input id="problem_show_involved_contests" type="checkbox">
@@ -198,7 +290,7 @@
   <script>
     // 初始化所有开关按钮
     $(function() {
-      @php($btns = ['web_page_display_wide', 'web_page_loading_animation', 'web_page_dark_mode', 'login_reg_captcha', 'allow_register', 'display_complete_userinfo', 'display_complete_standings', 'guest_see_problem', 'show_disscussions', 'post_discussion', 'problem_show_tag_collection', 'problem_show_involved_contests', 'rank_show_school', 'rank_show_class', 'rank_show_nick'])
+      @php($btns = ['web_page_display_wide', 'web_page_loading_animation', 'login_reg_captcha', 'allow_register', 'display_complete_userinfo', 'display_complete_standings', 'guest_see_problem', 'show_disscussions', 'post_discussion', 'problem_show_tag_collection', 'problem_show_involved_contests', 'rank_show_school', 'rank_show_class', 'rank_show_nick'])
       @foreach ($btns as $name)
         new Switch($("#{{ $name }}")[0], {
           // size: 'small',

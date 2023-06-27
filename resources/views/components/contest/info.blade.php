@@ -6,7 +6,7 @@
     </button>
     <i class="fa fa-exclamation-triangle fa-lg" aria-hidden="true"></i>
     {{ trans('sentence.Complete Profile') }}
-    <a href="{{ route('user_edit', Auth::user()->username) }}">{{ trans('main.Confirm') }}</a>
+    <a href="{{ route('user.edit', Auth::user()->username) }}">{{ trans('main.Confirm') }}</a>
   </div>
 @endif
 
@@ -19,8 +19,19 @@
     <ul class="list-unstyled">
       @foreach ($groups as $g)
         <li>
-          <i class="fa fa-users pr-2 text-sky" aria-hidden="true"></i>
-          <a href="{{ route('group', $g->id) }}">{{ $g->id }}. {{ $g->name }}</a>
+          <i class="fa fa-users text-sky" aria-hidden="true"></i>
+          <span>
+            @if ($g->type == 0)
+              [<i class="fa fa-book" aria-hidden="true"></i>
+              {{ __('main.Course') }}]
+            @else
+              [<i class="fa fa-users" aria-hidden="true"></i>
+              {{ __('main.Class') }}]
+            @endif
+          </span>
+          <a href="{{ route('group', $g->id) }}">
+            {{ $g->name }}
+          </a>
         </li>
       @endforeach
     </ul>
@@ -39,18 +50,21 @@
       {{ trans_choice('main.problems', $num_problems) }}
     </li>
     <li><i class="fa fa-calendar pr-2 text-sky" aria-hidden="true"></i>{{ $contest->start_time }}</li>
-    <li><i class="fa fa-calendar-times-o pr-2 text-sky" aria-hidden="true"></i>{{ $contest->end_time }}</li>
-    <li>
-      <i class="fa fa-clock-o pr-2 text-sky" aria-hidden="true"></i>
-      {{ null, $time_len = strtotime($contest->end_time) - strtotime($contest->start_time) }}
-      @if ($time_len > 3600 * 24 * 30)
-        {{ round($time_len / (3600 * 24 * 30), 1) }} {{ trans_choice('main.months', round($time_len / (3600 * 24 * 30), 1)) }}
-      @elseif($time_len > 3600 * 24)
-        {{ round($time_len / (3600 * 24), 1) }} {{ trans_choice('main.days', round($time_len / (3600 * 24), 1)) }}
-      @else
-        {{ round($time_len / 3600, 1) }} {{ trans_choice('main.hours', round($time_len / 3600, 1)) }}
-      @endif
-    </li>
+    @if ($contest->end_time != $contest->start_time)
+      <li><i class="fa fa-calendar-times-o pr-2 text-sky" aria-hidden="true"></i>{{ $contest->end_time }}</li>
+      <li>
+        <i class="fa fa-clock-o pr-2 text-sky" aria-hidden="true"></i>
+        {{ null, $time_len = strtotime($contest->end_time) - strtotime($contest->start_time) }}
+        @if ($time_len > 3600 * 24 * 30)
+          {{ round($time_len / (3600 * 24 * 30), 1) }}
+          {{ trans_choice('main.months', round($time_len / (3600 * 24 * 30), 1)) }}
+        @elseif($time_len > 3600 * 24)
+          {{ round($time_len / (3600 * 24), 1) }} {{ trans_choice('main.days', round($time_len / (3600 * 24), 1)) }}
+        @else
+          {{ round($time_len / 3600, 1) }} {{ trans_choice('main.hours', round($time_len / 3600, 1)) }}
+        @endif
+      </li>
+    @endif
     <li>
       <i class="fa fa-sort-amount-desc pr-1 text-sky" aria-hidden="true"></i>
       <div class="d-inline border bg-light px-1" style="border-radius: 12px; font-size: 0.9rem">

@@ -1,4 +1,4 @@
-@extends('layout-client')
+@extends('layouts.client')
 
 @section('title', trans('sentence.Reset Password'))
 
@@ -7,7 +7,7 @@
     <div class="row justify-content-center">
       @if (!empty(session('message')))
         <div class="col-md-8">
-          <div class="my-container alert-danger">
+          <div class="my-container  alert alert-danger">
             <h5>
               <i class="fa fa-exclamation-triangle fa-lg" aria-hidden="true"></i>
               {!! session('message') !!}
@@ -30,7 +30,7 @@
 
                 <div class="col-md-6">
                   <input id="old_password" type="password" class="form-control" name="user[old_password]"
-                    autocomplete="new-password" required>
+                    autocomplete="new-password" required oninput="this.value=this.value.replace(/\s+/g,'')">
                 </div>
               </div>
 
@@ -41,7 +41,7 @@
 
                 <div class="col-md-6">
                   <input id="new_password" type="password" class="form-control" name="user[new_password]" required
-                    minlength="8">
+                    minlength="8" oninput="this.value=this.value.replace(/\s+/g,'')">
                 </div>
               </div>
 
@@ -51,7 +51,7 @@
 
                 <div class="col-md-6">
                   <input id="password-confirm" type="password" class="form-control" name="user[password_confirmation]"
-                    required>
+                    required oninput="this.value=this.value.replace(/\s+/g,'')">
                 </div>
               </div>
 

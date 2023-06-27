@@ -2,7 +2,7 @@
 
 // 该文件为系统默认配置，后台设置会将新配置保存在数据库中。
 return [
-	"siteName"	                => "Online Judge",   //网站名称
+	"siteName"	                => "Sparks of Fire Online Judge",   //网站名称
     "APP_LOCALE"                => "en",    //网站前台默认语言
     "marquee_notice_id"         => "",      //前台滚动公告的编号
 
@@ -11,7 +11,6 @@ return [
 
 	"web_page_display_wide" 	=> true,    //宽屏模式
     "web_page_loading_animation"=> true,    //页面载入动画（全屏覆盖/中部动画）
-    "web_page_dark_mode"        => true,    //启用深色模式（根据客户端操作系统主题自动切换）
 
 	"allow_register"	        => true,    //允许访客注册账号
 	"login_reg_captcha"			=> true,    //登陆和注册时使用验证码
@@ -29,6 +28,6 @@ return [
 	"rank_show_nick"	        => true,    //榜单显示昵称（姓名）
 
 	"penalty_acm"	            => 1200,    //竞赛acm模式错误一次的罚时，1200秒=20分钟
-	"compile_error_submit_interval"	=> 300, //编译错误后，在此时间内不能再次提交，300秒=5分钟
-	"submit_interval"	        => 20,      //同一用户两次提交最小间隔，20秒
+	"compile_error_submit_interval"	=> 60,  //编译错误后，在此时间内不能再次提交，60秒
+	"submit_interval"	        => 10,      //同一用户两次提交最小间隔，10秒
 ];

@@ -12,6 +12,9 @@ return [
 
     "items per page"    => "items per page",
 
+    "explainLastWeek"   => "Ranking of the number of problem solved within 7 days from 00:00 last Monday to 24:00 last Sunday.",
+    "explainThisWeek"   => "Ranking of the number of problem solved from 00:00 Monday to Now.",
+
 //    auth/register.blade.php
     "Must fill"         => "Must fill, use to login. a-z,A-Z or 0-9",
     "Non essential"     => "Non essential",
@@ -29,6 +32,7 @@ return [
 
 //    client/password_reset
     "Reset Password"    => "Reset Password",
+    "Modify Password"   => "Modify Password",
 
 //    client/problem.blade.php
     "noSolutions"       => "You didn't submit any solution!",
@@ -39,6 +43,7 @@ return [
 //   problem
     "missing_spj"       => "Missing spj.cpp",
     "Choose Language"   => "----Choose Language----",
+    "cpp_use_o2"        => "Enable O2 optimization",
     "Input Code"        => "Input your code to solve this problem...",
     "submit_frequently" => "Submit frequently! You are not allowed to submit twice in :sec seconds",
     "submit_ce_frequently" => "You have a compilation error in the code you submitted at :dt. As a punishment, you can't continue to submit the code in :sec seconds!",
@@ -56,11 +61,13 @@ return [
     "pass_all_test"     => "Congratulations on passing all the test data!",
     "submitting"        => "Submitting, wait a while...",
     "judging"           => "Judging...",
-    "WA"                => "Unfortunately, your program can't pass all the test data.",
+    "WA"                => "Unfortunately, the program can't pass all the test data.",
     "explain_sample"    => "Samples are just examples, not all the test data. Please make sure that your program can deal with any data that meets the meaning of the question.",
 
 //    contest.password
     "pwd wrong"         => "The password is wrong",
+    "contest require pwd" => "You must enter the password to participate in this contest",
+    "contest input pwd" => "Input password, please",
 
 //    contest
     "Start to judge"    => "Start to judge",

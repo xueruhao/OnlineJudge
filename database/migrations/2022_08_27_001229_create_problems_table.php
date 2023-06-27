@@ -23,15 +23,18 @@ class CreateProblemsTable extends Migration
             $table->text('output')->nullable();
             $table->text('hint')->nullable();
             $table->string('source')->nullable();
+            $table->json('tags')->nullable();  // ['***','***', ...]
             $table->json('samples')->nullable();  // [{'in':'***','out':'***'}, ...]
             $table->text('fill_in_blank')->nullable();
             $table->integer('language')->default(0)->comment('代码填空的语言');
-            $table->boolean('spj')->default(0);
+            $table->boolean('spj')->default(0); // 是否spj
+            $table->integer('spj_language')->default(14); // C++20 -O2
             $table->integer('time_limit')->default(1000)->comment('MS');
-            $table->integer('memory_limit')->default(1000)->comment('MB');
+            $table->integer('memory_limit')->default(1024)->comment('MB');
             $table->boolean('hidden')->index()->default(1);
-            $table->bigInteger('creator')->nullable();
+            $table->bigInteger('user_id')->nullable();
 
+            $table->integer('level')->default(0)->comment('0:null,1:easy,2:middle,3:difficult');
             $table->integer('solved')->default(0);
             $table->integer('accepted')->default(0);
             $table->integer('submitted')->default(0);
@@ -66,7 +69,7 @@ class CreateProblemsTable extends Migration
         Schema::create('tag_pool', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('name', 100);
-            $table->bigInteger('parent_id')->nullable();
+            $table->bigInteger('user_id')->nullable(); // 创建者
             $table->boolean('hidden')->default(0);
             $table->dateTime('created_at')->useCurrent();
             $table->dateTime('updated_at')->useCurrent();

@@ -1,4 +1,4 @@
-@extends('layout-admin')
+@extends('layouts.admin')
 
 @section('title', '竞赛管理 | 后台')
 
@@ -6,25 +6,25 @@
 
   <h2>竞赛管理</h2>
   <hr>
-  <form action="" method="get" class="pull-right form-inline">
+  <form action="" method="get" class="float-right form-inline">
     <div class="form-inline mx-3">
-      每页
       <select name="perPage" class="form-control px-2" onchange="this.form.submit();">
         <option value="10">10</option>
-        <option value="20" @if (isset($_GET['perPage']) && $_GET['perPage'] == 20) selected @endif>20</option>
-        <option value="30" @if (isset($_GET['perPage']) && $_GET['perPage'] == 30) selected @endif>30</option>
-        <option value="50" @if (isset($_GET['perPage']) && $_GET['perPage'] == 50) selected @endif>50</option>
-        <option value="100" @if (isset($_GET['perPage']) && $_GET['perPage'] == 100) selected @endif>100</option>
+        <option value="20" @if (request()->has('perPage') && request('perPage') == 20) selected @endif>20</option>
+        <option value="30" @if (request()->has('perPage') && request('perPage') == 30) selected @endif>30</option>
+        <option value="50" @if (request()->has('perPage') && request('perPage') == 50) selected @endif>50</option>
+        <option value="100" @if (request()->has('perPage') && request('perPage') == 100) selected @endif>100</option>
       </select>
-      项
+      项每页
     </div>
     <div class="form-inline mx-3">
 
-      <select name="cate_id" class="form-control px-3" onchange="this.form.submit();" style="width:auto;padding:0 1%;text-align:center;text-align-last:center;">
+      <select name="cate_id" class="form-control px-3" onchange="this.form.submit();"
+        style="width:auto;padding:0 1%;text-align:center;text-align-last:center;">
         <option value="">所有类别</option>
-        <option value="0" @if (isset($_GET['cate_id']) && $_GET['cate_id'] === '0') selected @endif>--- 未分类 ---</option>
+        <option value="0" @if (request()->has('cate_id') && request('cate_id') === '0') selected @endif>--- 未分类 ---</option>
         @foreach ($categories as $cate)
-          <option value="{{ $cate->id }}" @if (isset($_GET['cate_id']) && $_GET['cate_id'] == $cate->id) selected @endif>
+          <option value="{{ $cate->id }}" @if (request()->has('cate_id') && request('cate_id') == $cate->id) selected @endif>
             @if ($cate->is_parent)
               --- [{{ $cate->title }}] ---
             @else
@@ -38,27 +38,28 @@
     <div class="form-inline mx-3">
       <select name="state" class="form-control px-3" onchange="this.form.submit();">
         <option value="all">所有进行阶段</option>
-        <option value="waiting" @if (isset($_GET['state']) && $_GET['state'] == 'waiting') selected @endif>尚未开始</option>
-        <option value="running" @if (isset($_GET['state']) && $_GET['state'] == 'running') selected @endif>正在进行中</option>
-        <option value="ended" @if (isset($_GET['state']) && $_GET['state'] == 'ended') selected @endif>已结束</option>
+        <option value="waiting" @if (request()->has('state') && request('state') == 'waiting') selected @endif>尚未开始</option>
+        <option value="running" @if (request()->has('state') && request('state') == 'running') selected @endif>正在进行中</option>
+        <option value="ended" @if (request()->has('state') && request('state') == 'ended') selected @endif>已结束</option>
       </select>
     </div>
     <div class="form-inline mx-3">
       <select name="judge_type" class="form-control px-3" onchange="this.form.submit();">
         <option value="">所有规则</option>
-        <option value="acm" @if (isset($_GET['judge_type']) && $_GET['judge_type'] == 'acm') selected @endif>ACM</option>
-        <option value="oi" @if (isset($_GET['judge_type']) && $_GET['judge_type'] == 'oi') selected @endif>OI</option>
+        <option value="acm" @if (request()->has('judge_type') && request('judge_type') == 'acm') selected @endif>ACM</option>
+        <option value="oi" @if (request()->has('judge_type') && request('judge_type') == 'oi') selected @endif>OI</option>
       </select>
     </div>
     <div class="form-inline mx-3">
-      <input type="text" class="form-control text-center" placeholder="标题" onchange="this.form.submit();" name="title" value="{{ $_GET['title'] ?? '' }}">
+      <input type="text" class="form-control text-center" placeholder="标题" onchange="this.form.submit();"
+        name="title" value="{{ request('title') ?? '' }}">
     </div>
-    <button class="btn border">查找</button>
+    <button class="btn btn-secondary border">查找</button>
   </form>
   <div class="float-left">
     {{ $contests->appends($_GET)->links() }}
-    <a href="javascript:$('.cb input[type=checkbox]').prop('checked',true)" class="btn border">全选</a>
-    <a href="javascript:$('.cb input[type=checkbox]').prop('checked',false)" class="btn border">取消</a>
+    <a href="javascript:$('.cb input[type=checkbox]').prop('checked',true)" class="btn btn-secondary border">全选</a>
+    <a href="javascript:$('.cb input[type=checkbox]').prop('checked',false)" class="btn btn-secondary border">取消</a>
 
     &nbsp;公开榜单:[
     <a href="javascript:" onclick="update_public_rank(1)">公开</a>
@@ -81,9 +82,10 @@
         <tr>
           <th></th>
           <th>编号</th>
-          @if (isset($_GET['cate_id']) && $_GET['cate_id'] !== '')
+          @if (request()->has('cate_id') && request('cate_id') !== '')
             <th>顺序
-              <a href="javascript:" style="color: #838383" onclick="whatisthis('当您浏览某具体类别的竞赛时，您可以移动竞赛的位置以改变顺序。<br>后台与前台将保持同步顺序，唯一的区别是前台不向普通用户展示隐藏的竞赛。')">
+              <a href="javascript:" style="color: #838383"
+                onclick="whatisthis('当您浏览某具体类别的竞赛时，您可以移动竞赛的位置以改变顺序。<br>后台与前台将保持同步顺序，唯一的区别是前台不向普通用户展示隐藏的竞赛。')">
                 <i class="fa fa-question-circle-o" aria-hidden="true"></i>
               </a>
             </th>
@@ -94,13 +96,15 @@
           <th>开始时间</th>
           <th>结束时间</th>
           <th>参赛权限
-            <a href="javascript:" style="color: #838383" onclick="whatisthis('public：任意用户可参加。<br>password：输入密码正确者可参加。<br>private：后台规定的用户可参加')">
+            <a href="javascript:" style="color: #838383"
+              onclick="whatisthis('public：任意用户可参加。<br>password：输入密码正确者可参加。<br>private：后台规定的用户可参加')">
               <i class="fa fa-question-circle-o" aria-hidden="true"></i>
             </a>
           </th>
           <th>参与人数</th>
           <th>封榜比例
-            <a href="javascript:" style="color: #838383" onclick="whatisthis('数值范围0~1<br>比赛时长*封榜比例=比赛封榜时间。<br>如：时长5小时，比例0.2，则第4小时开始榜单不更新。<br><br>值为0表示不封榜。<br>管理员不受影响')">
+            <a href="javascript:" style="color: #838383"
+              onclick="whatisthis('数值范围0~1<br>比赛时长*封榜比例=比赛封榜时间。<br>如：时长5小时，比例0.2，则第4小时开始榜单不更新。<br><br>值为0表示不封榜。<br>管理员不受影响')">
               <i class="fa fa-question-circle-o" aria-hidden="true"></i>
             </a>
           </th>
@@ -117,13 +121,16 @@
       <tbody>
         @foreach ($contests as $item)
           <tr>
-            <td class="cb" onclick="var cb=$(this).find('input[type=checkbox]');cb.prop('checked',!cb.prop('checked'))">
-              <input type="checkbox" value="{{ $item->id }}" onclick="window.event.stopPropagation();" style="vertical-align:middle;zoom: 140%">
+            <td class="cb"
+              onclick="var cb=$(this).find('input[type=checkbox]');cb.prop('checked',!cb.prop('checked'))">
+              <input type="checkbox" value="{{ $item->id }}" onclick="window.event.stopPropagation();"
+                style="vertical-align:middle;zoom: 140%">
             </td>
             <td>{{ $item->id }}</td>
-            @if (isset($_GET['cate_id']) && $_GET['cate_id'] !== '')
+            @if (request()->has('cate_id') && request('cate_id') !== '')
               <td nowrap>
-                <select onchange="update_contest_order($(this).val())" style="width:auto;padding:0 1%;text-align:center;text-align-last:center;border-radius: 2px;">
+                <select onchange="update_contest_order($(this).val())"
+                  style="width:auto;padding:0 1%;text-align:center;text-align-last:center;border-radius: 2px;">
                   <option value="{{ route('api.admin.contest.update_order', [$item->id, 1000000000]) }}">置顶</option>
                   @for ($shift = 256; $shift > 0; $shift >>= 1)
                     <option value="{{ route('api.admin.contest.update_order', [$item->id, $shift]) }}">
@@ -142,10 +149,12 @@
             @endif
             <td>
               <div class="form-inline">
-                <select class="" onchange="update_contest_cate_id($(this).val())" style="width:auto;padding:0 1%;text-align:center;text-align-last:center;border-radius: 2px;">
+                <select class="" onchange="update_contest_cate_id($(this).val())"
+                  style="width:auto;padding:0 1%;text-align:center;text-align-last:center;border-radius: 2px;">
                   <option value="{{ route('api.admin.contest.update_cate_id', [$item->id, 0]) }}">--- 未分类 ---</option>
                   @foreach ($categories as $cate)
-                    <option value="{{ route('api.admin.contest.update_cate_id', [$item->id, $cate->id]) }}" @if ($item->cate_id == $cate->id) selected @endif>
+                    <option value="{{ route('api.admin.contest.update_cate_id', [$item->id, $cate->id]) }}"
+                      @if ($item->cate_id == $cate->id) selected @endif>
                       @if ($cate->is_parent)
                         --- [{{ $cate->title }}] ---
                       @else
@@ -166,19 +175,21 @@
             <td nowrap>{{ sprintf('%.2f', $item->lock_rate) }}</td>
             <td nowrap>
               {{-- {{$item->public_rank}} --}}
-              <input id="switch_prank{{ $item->id }}" type="checkbox" @if ($item->public_rank) checked @endif>
+              <input id="switch_prank{{ $item->id }}" type="checkbox"
+                @if ($item->public_rank) checked @endif>
             </td>
             <td nowrap>
               {{-- {{$item->hidden}} --}}
-              <input id="switch_hidden{{ $item->id }}" type="checkbox" @if (!$item->hidden) checked @endif>
+              <input id="switch_hidden{{ $item->id }}" type="checkbox"
+                @if (!$item->hidden) checked @endif>
             </td>
             <td nowrap>{{ $item->username }}</td>
             <td nowrap>
               <a href="{{ route('admin.contest.update', $item->id) }}" class="mx-1" target="_blank" title="修改">
                 <i class="fa fa-edit" aria-hidden="true"></i> 编辑
               </a>
-              {{-- <a href="javascript:" onclick="delete_contest({{ $item->id }})" class="mx-1" title="删除">
-                <i class="fa fa-trash" aria-hidden="true"></i> 删除 --}}
+              <a href="javascript:" onclick="delete_contest({{ $item->id }}, this.parentNode.parentNode)" class="mx-1" title="删除">
+                <i class="fa fa-trash" aria-hidden="true"></i> 删除
               </a>
               <a href="javascript:" onclick="clone_contest({{ $item->id }})" class="mx-1" title="克隆该竞赛">
                 <i class="fa fa-clone" aria-hidden="true"></i> 克隆
@@ -347,6 +358,27 @@
             }, 450);
           }
         );
+      });
+    }
+
+    // 删除竞赛
+    function delete_contest(cid, tr) {
+      Notiflix.Confirm.Show('删除竞赛', '删除后这场竞赛记录将永久丢失，确定删除？', '确定', '返回', function() {
+        $.ajax({
+          type: 'delete',
+          url: '{{ route('api.admin.contest.delete', '??') }}'.replace('??', cid),
+          success: function(ret) {
+            if (ret.ok) {
+              Notiflix.Notify.Success(ret.msg);
+              $(tr).hide()
+            } else {
+              Notiflix.Report.Init({
+                plainText: false, // 使<br>可以换行
+              })
+              Notiflix.Report.Failure('删除失败', ret.msg, '返回')
+            }
+          }
+        })
       });
     }
   </script>

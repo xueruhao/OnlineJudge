@@ -1,5 +1,8 @@
 <?php
 return [
+    // 常用词汇
+    "DarkMode"      => "Dark Mode",
+    "LightMode"     => "Light Mode",
     "My"            => "My ",
     "Yes"           => "Yes",
     "No"            => "No",
@@ -38,6 +41,7 @@ return [
     "Id"            => "Id",
     "Home"          => "Home",
     "Problems"      => "Problems",
+    "Problems List" => "Problems List",
     "Problem"       => "Problem",
     "Problem_timu"  => "Problem",
     "Status"        => "Status",
@@ -47,6 +51,7 @@ return [
     "Contest"       => "Contest",
     "contest"       => "Contest",
     "Contests"      => "Contests",
+    "Contests List" => "Contests List",
     "Training"      => "Training",
     "exam"          => "Exam",
     "Exam"          => "Exam",
@@ -70,6 +75,7 @@ return [
     "Open-Source Code" => "Open-Source Code",
 
     //    user
+    "NumPeople"     => "People",
     "Captcha"       => "Captcha",
     "Confirm"       => "Confirm",
     "Cancel"        => "Cancel",
@@ -77,9 +83,9 @@ return [
     "Find"          => "Find ",
     "Register"      => "Register",
     "Login"         => "Login",
-    "Logout"         => "Logout",
+    "Logout"        => "Logout",
     "Username"      => "Username",
-    "E-Mail Address" => "E-Mail Address",
+    "E-Mail"        => "E-Mail",
     "Password"      => "Password",
     "New Password"  => "New Password",
     "Old Password"  => "Old Password",
@@ -97,9 +103,12 @@ return [
     "Opened Problems" => "Opened Problems",
     "Submissions"   => "Submissions",
     "Accepted"      => "Accepted",
+    "AC"            => "AC",
     "Attempting"    => "Attempting",
 
     //problem
+    "ProblemList"   => "Problem List",
+    "Problem ID"    => "Problem ID",
     "Title"         => "Title",
     "PDescription"  => "Problem Description",
     "IDescription"  => "Input Description",
@@ -128,9 +137,11 @@ return [
     "hours"         => "[*,1] hour|[2,*] hours",
     "minutes"       => "[*,1] minute|[2,*] minutes",
     "problems"      => "[*,1] problem|[2,*] problems",
-    "Tag Collection"=> "Tag Collection",
+    "Tag Collection" => "Tag Collection",
     "Tag"           => "Tag",
     "Tags"          => "Tags",
+    "Official Tags" => "Official Tags",
+    "Users Marks"   => "Users Marks",
     "Input"         => "Input",
     "Tag Pool"      => "Tag Pool",
     "Most Tagged"   => "Most Tagged",
@@ -149,7 +160,7 @@ return [
     "Blank Filling" => "Blank Filling",
 
     //    standing
-    "All"           => "All",
+    "All"           => "All ",
     "Year"          => "Year",
     "Month"         => "Month",
     "Week"          => "Week",
@@ -206,11 +217,13 @@ return [
 
     "Contests involved" => "Contests involved",
 
+    "Simple Style"  => "Simple Style",
 
     "ACM"           => "ACM",
     "OI"            => "OI",
     "EXAM"          => "EXAM",
 
+    "Notice"        => "Notice",
     "New Notice"    => "New Notification",
     "Content"       => "Content",
 
@@ -226,6 +239,7 @@ return [
     "Group"         => "Group",
     "Groups"        => "Groups",
     "My Groups"     => "My Groups",
+    "Joined Groups" => "Joined Groups",
     "Related Groups" => "Related Groups",
     "Creator"       => "Creator",
     "Course"        => "Course",

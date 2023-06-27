@@ -11,14 +11,14 @@ class GroupController extends Controller
     // get: 后台管理 group列表
     public function list()
     {
-        $groups = DB::table('groups as c')
-            ->leftJoin('users', 'users.id', '=', 'creator')
-            ->select(['c.*', 'username'])
-            ->when(isset($_GET['name']), function ($q) {
-                return $q->where('c.name', 'like', '%' . $_GET['name'] . '%');
+        $groups = DB::table('groups as g')
+            ->leftJoin('users', 'users.id', '=', 'g.user_id')
+            ->select(['g.*', 'username'])
+            ->when(request()->has('name'), function ($q) {
+                return $q->where('g.name', 'like', '%' . request('name') . '%');
             })
             ->orderByDesc('id')
-            ->paginate($_GET['perPage'] ?? 10);
+            ->paginate(request('perPage') ?? 10);
 
         return view('admin.group.list', compact('groups'));
     }
@@ -32,8 +32,13 @@ class GroupController extends Controller
     // get: 编辑已存在的 group
     public function edit(Request $request, $group_id)
     {
-        if (!($group = DB::table('groups')->find($group_id)))
+        $group = DB::table('groups')->find($group_id);
+        if (!$group)
             return view('message', ['msg' => '群组不存在!']);
+
+        // json格式解码为逗号间隔格式
+        $group->archive_cite = implode(',', json_decode($group->archive_cite ?? '[]', true));
+
         return view('admin.group.edit', compact('group'));
     }
 }

@@ -1,4 +1,4 @@
-@extends('layout-client')
+@extends('layouts.client')
 
 @section('title', trans('main.Study Schedule') . ' | ' . $group->name)
 
@@ -24,7 +24,7 @@
           </h5>
           <hr>
           <div>
-            <x-solution.line-chart :user-id="$user->id" :group-id="$group->id" />
+            @livewire('solution.line-chart', ['userId' => $user->id, 'groupId' => $group->id])
           </div>
 
           {{ $contests->appends($_GET)->links() }}

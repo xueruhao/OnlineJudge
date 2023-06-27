@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Helpers\CacheHelper;
+use App\Http\Helpers\ProblemHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -12,42 +14,49 @@ class ProblemController extends Controller
 {
     public function problems()
     {
-        $problems = DB::table('problems');
-        if (isset($_GET['tag_id']) && $_GET['tag_id'] != '')
-            $problems = $problems->join('tag_marks', 'problem_id', '=', 'problems.id')
-                ->where('tag_id', $_GET['tag_id']);
-        $problems = $problems->select(
-            'problems.id',
-            'title',
-            'source',
-            'hidden',
-            'solved',
-            'accepted',
-            'submitted'
-        )
-            ->when(!isset($_GET['show_hidden']), function ($q) {
+        $problems = DB::table('problems as p');
+        if (request()->has('tag_id') && request('tag_id') != '')
+            $problems = $problems->leftJoin('tag_marks', 'problem_id', '=', 'p.id')
+                ->where(function ($q) {
+                    // 筛选民间标签标记的题目
+                    $q->where('tag_id', request('tag_id'));
+                    // 或者官方标签标记的题目
+                    if ($official = (DB::table('tag_pool')->find(request('tag_id'))->name ?? false))
+                        $q->orWhereRaw(sprintf("JSON_CONTAINS(tags, '\"%s\"')", $official));
+                });
+
+        if (!in_array(request('sort'), ['id', 'title', 'source', 'accepted', 'solved', 'submitted', 'ac_rate']))
+            request()->offsetSet('sort', 'id');
+
+        $problems = $problems->select([
+            'p.id', 'title', 'source', 'hidden',
+            'solved', 'accepted', 'submitted', DB::raw('`accepted`/`submitted` as `ac_rate`')
+        ])
+            ->when(!request()->has('show_hidden'), function ($q) {
                 return $q->where('hidden', 0);
             })
-            ->when(isset($_GET['kw']) && $_GET['kw'] != '', function ($q) {
+            ->when(request()->has('kw') && request('kw') != '', function ($q) {
                 $q->where(function ($q) {
-                    $q->where('title', 'like', '%' . $_GET['kw'] . '%')
-                        ->orWhere('source', 'like', $_GET['kw'] . '%')
-                        ->orWhere('problems.id', $_GET['kw']);
+                    $q->where('title', 'like', '%' . request('kw') . '%')
+                        ->orWhere('source', 'like', '%' . request('kw') . '%')
+                        ->orWhere('p.id', request('kw'));
                 });
             })
-            ->orderBy('problems.id')
+            ->orderBy(request('sort') ?? 'id', request()->has('reverse') ? 'desc' : 'asc')
             ->distinct()
-            ->paginate(isset($_GET['perPage']) ? $_GET['perPage'] : 100);
+            ->paginate(request()->has('perPage') ? request('perPage') : 100);
 
-        // 获取题目标签
+        //  ================== 获取题目标签 =======================
         foreach ($problems as &$problem) {
-            $problem->tags = $this::get_problem_tags($problem->id);
+            $problem->tags = ProblemHelper::getTags($problem->id); // 用户标记的（含出题人标记过的）
+            // 当前用户在本题的提交结果。null,0，1，2，3都视为没做； 4视为Accepted；其余视为答案错误（尝试中）
+            $problem->result = ProblemHelper::getUserResult($problem->id);
         }
 
         $tag_pool = DB::table('tag_pool')
             ->select('id', 'name')
             ->where('hidden', 0)
-            ->orderBy('id')
+            ->orderBy('name')
             ->get();
         return view('problem.problems', compact('problems', 'tag_pool'));
     }
@@ -63,7 +72,7 @@ class ProblemController extends Controller
         $problem = DB::table('problems')->select([
             'hidden', 'id', 'title', 'description',
             'language', // 代码填空的语言
-            'input', 'output', 'hint', 'source', 'time_limit', 'memory_limit', 'spj',
+            'input', 'output', 'hint', 'source', 'tags', 'time_limit', 'memory_limit', 'spj',
             'type', 'fill_in_blank',
             'accepted', 'solved', 'submitted'
         ])->find($id);
@@ -77,21 +86,21 @@ class ProblemController extends Controller
         }
 
         //读取样例文件
-        $samples = read_problem_data($id);
+        $samples = ProblemHelper::readSamples($id);
 
-        // 是否存在特判代码
-        $hasSpj = file_exists(testdata_path($problem->id . '/spj/spj.cpp'));
+        // 获取本题的民间收集标签（有缓存）
+        $tags = ProblemHelper::getTags($problem->id, official: false, informal_limit: 5);
 
-        // 获取本题的tag（有缓存）
-        $tags = $this::get_problem_tags($problem->id, 5);
+        // 官方tag
+        $problem->tags = json_decode($problem->tags ?? '[]', true); // json => array
 
         // 可能指定了solution代码
-        $solution = DB::table('solutions')->find($_GET['solution'] ?? -1);
+        $solution = DB::table('solutions')->find(request('solution') ?? -1);
         if (Auth::check() && $solution && ($solution->user_id == Auth::id() || $user->can('admin.solution.view')))
             $solution_code = $solution->code ?? null;
         else
             $solution_code = null;
-        return view('problem.problem', compact('problem', 'samples', 'hasSpj', 'tags'));
+        return view('problem.problem', compact('problem', 'samples', 'tags'));
     }
 
     /**
@@ -200,31 +209,5 @@ class ProblemController extends Controller
         return DB::table('discussions')
             ->where('id', $request->input('id'))
             ->update(['hidden' => $request->input('value')]);
-    }
-
-
-    // ================================ 公用功能 =================================
-    /**
-     * 获取某题目的标签，默认获取被标记次数最多的3个，并缓存20分钟
-     * @return array
-     */
-    public static function get_problem_tags(int $problem_id, int $limit = 3)
-    {
-        return  Cache::remember(
-            sprintf('problem:%d:tags:limit:%d', $problem_id, $limit),
-            1200, // 缓存20分钟
-            function () use ($problem_id, $limit) {
-                $tags = DB::table('tag_marks as tm')
-                    ->join('tag_pool as tp', 'tp.id', '=', 'tm.tag_id')
-                    ->select(['tp.id', 'tp.name', DB::raw('count(*) as count')])
-                    ->where('tm.problem_id', $problem_id)
-                    ->where('tp.hidden', 0)
-                    ->groupBy('tp.id')
-                    ->orderByDesc('count')
-                    ->limit($limit)
-                    ->get();
-                return $tags ?? [];
-            }
-        );
     }
 }

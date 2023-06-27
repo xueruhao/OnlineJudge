@@ -1,5 +1,8 @@
 <?php
 return [
+    // 常用词汇
+    "DarkMode"      => "深色模式",
+    "LightMode"     => "浅色模式",
     "My"            => "我的",
     "Yes"           => "是",
     "No"            => "否",
@@ -38,6 +41,7 @@ return [
     "Id"            => "编号",
     "Home"          => "主页",
     "Problems"      => "题库",
+    "Problems List" => "题目列表",
     "Problem"       => "问题",
     "Problem_timu"  => "题目",
     "Status"        => "状态",
@@ -47,6 +51,7 @@ return [
     "Contest"       => "竞赛",
     "contest"       => "竞赛",
     "Contests"      => "竞赛",
+    "Contests List" => "作业列表",
     "Training"      => "训练",
     "exam"          => "考试",
     "Exam"          => "考试",
@@ -70,6 +75,7 @@ return [
     "Open-Source Code" => "开源代码",
 
     //    user
+    "NumPeople"     => "人数",
     "Captcha"       => "验证码",
     "Confirm"       => "确认",
     "Cancel"        => "取消",
@@ -77,9 +83,9 @@ return [
     "Find"          => "查找",
     "Register"      => "注册",
     "Login"         => "登录",
-    "Logout"         => "登出",
+    "Logout"        => "退出",
     "Username"      => "用户名",
-    "E-Mail Address" => "邮箱地址",
+    "E-Mail"        => "电子邮箱",
     "Password"      => "密码",
     "New Password"  => "新密码",
     "Old Password"  => "旧密码",
@@ -87,7 +93,7 @@ return [
     "Confirm New Password" => "确认新密码",
     "Remember Me"   => "记住我",
     "Profile"       => "个人资料",
-    "Administration" => "管理",
+    "Administration" => "后台管理",
     "Name"          => "名字",
     "School"        => "学校",
     "Class"         => "班级",
@@ -97,9 +103,12 @@ return [
     "Opened Problems" => "已打开问题",
     "Submissions"   => "全部提交",
     "Accepted"      => "正确",
+    "AC"            => "正确",
     "Attempting"    => "正在尝试",
 
     //problem
+    "ProblemList"   => "题单",
+    "Problem ID"    => "问题编号",
     "Title"         => "标题",
     "PDescription"  => "题目描述",
     "IDescription"  => "输入描述",
@@ -113,7 +122,7 @@ return [
     "AC/Submitted"  => "正确/提交次数",
     "AC/Solved/Submitted"   => "正确/解决题目/提交次数",
     "Solved/Submitted"      => "解决题目/提交次数",
-    "ACRate"        => "提交正确率",
+    "ACRate"        => "正确率",
     "SolvedRate"    => "题目解决率",
     "Public"        => "公开",
     "Hidden"        => "隐藏",
@@ -128,9 +137,11 @@ return [
     "hours"         => "[*]小时",
     "minutes"       => "[*]分钟",
     "problems"      => "[*]个问题",
-    "Tag Collection"=> "标签收集",
+    "Tag Collection" => "标签收集",
     "Tag"           => "标签",
     "Tags"          => "标签",
+    "Official Tags" => "官方标签",
+    "Users Marks"   => "用户标记",
     "Input"         => "输入",
     "Tag Pool"      => "标签库",
     "Most Tagged"   => "标记最多",
@@ -194,8 +205,8 @@ return [
     "Penalty"       => "耗时",
     "Full screen"   => "全屏",
     "Up to now"     => "实时更新",
-    "Waiting"       => "等待",
-    "Running"       => "正在运行",
+    "Waiting"       => "等待中",
+    "Running"       => "正在进行",
     "Ended"         => "已结束",
     "Balloon"       => "气球",
     "Delivery"      => "派送",
@@ -206,12 +217,14 @@ return [
 
     "Contests involved" => "涉及竞赛",
 
+    "Simple Style"  => "简约风格",
 
     "ACM"           => "ACM",
     "OI"            => "OI",
     "EXAM"          => "EXAM",
 
-    "New Notice"    => "新告示",
+    "Notice"        => "公告",
+    "New Notice"    => "发布告示",
     "Content"       => "内容",
 
     "access_public" => "公开参加",
@@ -226,6 +239,7 @@ return [
     "Group"         => "群组",
     "Groups"        => "群组",
     "My Groups"     => "我的群组",
+    "Joined Groups" => "已加入群组",
     "Related Groups" => "相关群组",
     "Creator"       => "创建者",
     "Course"        => "课程",

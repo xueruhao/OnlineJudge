@@ -1,4 +1,4 @@
-@extends('layout-client')
+@extends('layouts.client')
 
 @section('title', trans('main.Groups'))
 
@@ -37,24 +37,24 @@
           @auth
             <div class="custom-control custom-checkbox mx-2">
               <input type="checkbox" name="mygroups" class="custom-control-input" id="mygroups"
-                @if ($_GET['mygroups'] ?? false) checked @endif onchange="this.form.submit()">
+                @if (request('mygroups') ?? false) checked @endif onchange="this.form.submit()">
               <label class="custom-control-label pt-1" for="mygroups">{{ __('main.My Groups') }}</label>
             </div>
           @endauth
 
           <div class="form-inline mx-2">
             <select name="perpage" class="form-control px-2" onchange="this.form.submit();">
-              <option value="6" @if (isset($_GET['perpage']) && $_GET['perpage'] == 6) selected @endif>6</option>
-              <option value="12" @if (!isset($_GET['perpage']) || $_GET['perpage'] == 12) selected @endif>12</option>
-              <option value="24" @if (isset($_GET['perpage']) && $_GET['perpage'] == 24) selected @endif>24</option>
-              <option value="120" @if (isset($_GET['perpage']) && $_GET['perpage'] == 120) selected @endif>120</option>
+              <option value="6" @if (request()->has('perpage') && request('perpage') == 6) selected @endif>6</option>
+              <option value="12" @if (!request()->has('perpage') || request('perpage') == 12) selected @endif>12</option>
+              <option value="24" @if (request()->has('perpage') && request('perpage') == 24) selected @endif>24</option>
+              <option value="120" @if (request()->has('perpage') && request('perpage') == 120) selected @endif>120</option>
             </select>
             {{ __('sentence.items per page') }}
           </div>
           <div class="form-inline mx-2">
             <input type="text" class="form-control text-center"
               placeholder="{{ __('main.Name') }}/{{ __('main.Class') }}" onchange="this.form.submit();" name="kw"
-              value="{{ $_GET['kw'] ?? '' }}">
+              value="{{ request('kw') ?? '' }}">
           </div>
           <button class="btn text-white bg-success ml-2">
             <i class="fa fa-filter" aria-hidden="true"></i>
@@ -84,8 +84,8 @@
                 </a>
                 @if ($item->hidden)
                   <span class="text-nowrap" style="font-size: 0.9rem; right:1rem; top:1rem;">
-                    <i class="fa fa-eye-slash ml-2" aria-hidden="true"></i>
-                    <span class="text-gray">{{ __('main.Hidden') }}</span>
+                    <i class="fa fa-eye-slash ml-2" aria-hidden="true" title="{{ __('main.Hidden') }}"></i>
+                    {{-- <span class="text-gray">{{ __('main.Hidden') }}</span> --}}
                   </span>
                 @endif
               </h6>
@@ -143,16 +143,17 @@
                 @endif --}}
 
                 @if (($item->user_in_group ?? 0) == 1)
+                  @php($has_btn = true)
                   <a class="btn btn-info border">申请中</a>
                 @endif
 
-                @if (Auth::check() && Auth::user()->has_group_permission($item, 'admin.group.update'))
+                {{-- @if (Auth::check() && Auth::user()->can_group($item, 'admin.group.update'))
                   @php($has_btn = true)
                   <a class="btn btn-info border" href="{{ route('admin.group.edit', [$item->id]) }}"
                     target="_blank">编辑</a>
                   <a class="btn btn-danger border" href="javascript:delete_group({{ $item->id }})"
                     onclick="return confirm('数据宝贵! 确定删除吗？')">删除</a>
-                @endif
+                @endif --}}
               </div>
 
               {{-- 一个虚拟按钮撑起高度 --}}

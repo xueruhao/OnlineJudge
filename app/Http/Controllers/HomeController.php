@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\CacheHelper;
+use App\Http\Helpers\ProblemHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
 
 class HomeController extends Controller
 {
-    public function home()
+    public function home(Request $request)
     {
         $notices = DB::table('notices')
             ->leftJoin('users', 'users.id', '=', 'user_id')
@@ -28,7 +29,7 @@ class HomeController extends Controller
         $next_monday_time = $monday_time + 3600 * 24 * 7;
 
         $rk = 'home:cache:this_week_top10';
-        CacheHelper::clear_cache_if_rejudged($rk);
+        CacheHelper::has_key_with_autoclear_if_rejudged($rk);
         $this_week = Cache::remember($rk, 3600, function () use ($monday_time) {
             $this_week = DB::table('solutions')
                 ->join('users', 'users.id', '=', 'solutions.user_id')
@@ -42,7 +43,7 @@ class HomeController extends Controller
         });
 
         $rk = 'home:cache:last_week_top10';
-        CacheHelper::clear_cache_if_rejudged($rk);
+        CacheHelper::has_key_with_autoclear_if_rejudged($rk);
         $last_week = Cache::remember(
             $rk,
             $next_monday_time - time(),

@@ -1,4 +1,4 @@
-@extends('layout-admin')
+@extends('layouts.admin')
 
 @section('title', __('main.Group') . '管理 | 后台')
 
@@ -11,23 +11,23 @@
       每页
       <select name="perPage" class="form-control px-2" onchange="this.form.submit();">
         <option value="10">10</option>
-        <option value="20" @if (isset($_GET['perPage']) && $_GET['perPage'] == 20) selected @endif>20</option>
-        <option value="30" @if (isset($_GET['perPage']) && $_GET['perPage'] == 30) selected @endif>30</option>
-        <option value="50" @if (isset($_GET['perPage']) && $_GET['perPage'] == 50) selected @endif>50</option>
-        <option value="100" @if (isset($_GET['perPage']) && $_GET['perPage'] == 100) selected @endif>100</option>
+        <option value="20" @if (request()->has('perPage') && request('perPage') == 20) selected @endif>20</option>
+        <option value="30" @if (request()->has('perPage') && request('perPage') == 30) selected @endif>30</option>
+        <option value="50" @if (request()->has('perPage') && request('perPage') == 50) selected @endif>50</option>
+        <option value="100" @if (request()->has('perPage') && request('perPage') == 100) selected @endif>100</option>
       </select>
       项
     </div>
     <div class="form-inline mx-3">
       <input type="text" class="form-control text-center" placeholder="标题" onchange="this.form.submit();"
-        name="name" value="{{ $_GET['name'] ?? '' }}">
+        name="name" value="{{ request('name') ?? '' }}">
     </div>
-    <button class="btn border">查找</button>
+    <button class="btn btn-secondary border">查找</button>
   </form>
   <div class="float-left">
     {{ $groups->appends($_GET)->links() }}
-    <a href="javascript:$('.cb input[type=checkbox]').prop('checked',true)" class="btn border">全选</a>
-    <a href="javascript:$('.cb input[type=checkbox]').prop('checked',false)" class="btn border">取消</a>
+    <a href="javascript:$('.cb input[type=checkbox]').prop('checked',true)" class="btn btn-secondary border">全选</a>
+    <a href="javascript:$('.cb input[type=checkbox]').prop('checked',false)" class="btn btn-secondary border">取消</a>
 
     &nbsp;前台可见性:[
     <a href="javascript:" onclick="update_hidden(0)">公开</a>

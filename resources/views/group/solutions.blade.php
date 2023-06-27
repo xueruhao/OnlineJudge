@@ -1,4 +1,4 @@
-@extends('layout-client')
+@extends('layouts.client')
 
 @section('title', trans('main.Solutions') . ' | ' . $group->name)
 
@@ -11,7 +11,7 @@
       </div>
       <div class="col-12 col-sm-12">
         <div class="my-container bg-white">
-          <x-solution.solutions :group-id="$group->id"/>
+          @livewire('solution.solutions', ['groupId' => $group->id])
         </div>
       </div>
     </div>

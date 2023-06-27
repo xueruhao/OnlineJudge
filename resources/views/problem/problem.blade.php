@@ -1,8 +1,9 @@
-@extends('layout-client')
+@extends('layouts.client')
 
 @if (isset($contest))
-  @section('title', sprintf('%s %s | %s %s', __('main.Problem'), index2ch($problem->index), __('main.Contest'), $contest->id))
-@else
+  @section('title', sprintf('%s %s | %s %s', __('main.Problem'), index2ch($problem->index), __('main.Contest'),
+    $contest->id))
+  @else
   @section('title', trans('main.Problem') . ' ' . $problem->id)
 @endif
 
@@ -47,11 +48,6 @@
         /* height: 100vh;  */
         /* background-color:green; */
       }
-
-      .blank-placeholder {
-        width: 100%;
-        height: 30rem;
-      }
     }
   </style>
 
@@ -60,27 +56,31 @@
       {{-- 竞赛下，显示菜单 --}}
       @if (isset($contest))
         <div class="mt-3">
-          <x-contest.navbar :contest="$contest" :group-id="$_GET['group'] ?? null" />
+          <x-contest.navbar :contest="$contest" :group-id="request('group') ?? null" />
         </div>
 
         {{-- 题号链接 --}}
-        <x-contest.problems-link :contest-id="$contest->id" :problem-index="$problem->index" :group-id="$_GET['group'] ?? null" />
+        <x-contest.problems-link :contest-id="$contest->id" :problem-index="$problem->index" :group-id="request('group') ?? null" />
       @endif
 
       {{-- 题目内容 --}}
       <div class="p-3 border-bottom">
-        {{-- 非竞赛&&题目未公开，则提示 --}}
-        @if (!isset($contest) && $problem->hidden == 1)
-          [<span class="text-red">{{ trans('main.Hidden') }}</span>]
-        @endif
         <h4 class="text-center">
           {{ isset($contest) ? index2ch($problem->index) : $problem->id }}. {{ $problem->title }}
+
+          {{-- 非竞赛&&题目未公开，则提示 --}}
+          @if (!isset($contest) && $problem->hidden == 1)
+            <span class="m-2" style="font-size: 0.9rem; vertical-align: top;">
+              <i class="fa fa-eye-slash mr-1" aria-hidden="true"></i>
+              <span class="text-gray">{{ trans('main.Hidden') }}</span>
+            </span>
+          @endif
 
           {{-- 该题提交记录连接 --}}
           @if (isset($contest))
             <span style="font-size: 0.85rem">
               [ <a
-                href="{{ route('contest.solutions', [$contest->id, 'group' => $_GET['group'] ?? null, 'index' => $problem->index]) }}">{{ __('main.Solutions') }}</a>
+                href="{{ route('contest.solutions', [$contest->id, 'group' => request('group') ?? null, 'index' => $problem->index]) }}">{{ __('main.Solutions') }}</a>
               ]
             </span>
           @else
@@ -104,8 +104,7 @@
           {{-- 编辑链接 --}}
           @if (Auth::check() && Auth::user()->can('admin.problem.update'))
             <span style="font-size: 0.85rem">
-              [ <a href="{{ route('admin.problem.update_withId', $problem->id) }}"
-                target="_blank">{{ __('main.Edit') }}</a> ]
+              [ <a href="{{ route('admin.problem.update', $problem->id) }}" target="_blank">{{ __('main.Edit') }}</a> ]
               [ <a href="{{ route('admin.problem.test_data', ['pid' => $problem->id]) }}"
                 target="_blank">{{ __('main.Test Data') }}</a> ]
             </span>
@@ -114,16 +113,13 @@
         <hr>
 
         {{-- 题目基本信息 --}}
-        <div class="alert-info p-2 mb-2 d-flex flex-wrap" style="font-size: 0.9rem">
+        <div class=" alert alert-info p-2 mb-2 d-flex flex-wrap" style="font-size: 0.9rem">
           <div style="min-width: 300px">{{ __('main.Time Limit') }}: {{ $problem->time_limit }}MS</div>
           <div style="min-width: 300px">{{ __('main.Memory Limit') }}: {{ $problem->memory_limit }}MB</div>
           <div style="min-width: 300px">{{ __('main.Result Judgement') }}:
             @if ($problem->spj == 1)
               <span class="text-red">
                 {{ __('main.Special Judge') }}
-                @if (!$hasSpj)
-                  ({{ __('sentence.missing_spj') }})
-                @endif
               </span>
             @else
               {{ __('main.Text Comparison') }}
@@ -136,11 +132,22 @@
             /
             {{ $problem->submitted }}
           </div>
-          @if (count($tags) > 0 && (!isset($contest) || time() > strtotime($contest->end_time)))
-            <div style="min-width: 300px">{{ __('main.Tags') }}:
+          @if (!isset($contest) || time() > strtotime($contest->end_time))
+            <div style="min-width: 300px">{{ __('main.Official Tags') }}:
+              @foreach ($problem->tags as $item)
+                <span class="mx-2">
+                  <i class="fa fa-tag" aria-hidden="true"></i>
+                  <span class="text-nowrap">{{ $item }}</span>
+                </span>
+              @endforeach
+            </div>
+            <div style="min-width: 300px">{{ __('main.Users Marks') }}:
               @foreach ($tags as $item)
-                <span class="px-1 text-nowrap">{{ $item->name }}
-                  (<i class="fa fa-user-o" aria-hidden="true" style="padding:0 1px"></i>{{ $item->count }})
+                <span class="mx-2">
+                  <i class="fa fa-tag" aria-hidden="true"></i>
+                  <span class="text-nowrap">{{ $item['name'] }}
+                    (<i class="fa fa-user-o" aria-hidden="true"></i>{{ $item['count'] }})
+                  </span>
                 </span>
               @endforeach
             </div>
@@ -164,10 +171,10 @@
 
           @if (!empty($samples))
             <h4 class="my-2 text-sky">{{ __('main.Samples') }}</h4>
-            <div class="alert alert-info p-2 mb-0">
+            {{-- <div class="alert alert-info p-2 mb-0">
               <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
               <span>{{ trans('sentence.explain_sample') }}</span>
-            </div>
+            </div> --}}
           @endif
           @foreach ($samples as $i => $sam)
             <div class="border my-2 not_math">
@@ -176,13 +183,13 @@
                 {{ __('main.Input') }}
                 <a href="javascript:" onclick="copy_text($('#sam_in{{ $i }}'))">{{ __('main.Copy') }}</a>
               </div>
-              <pre class="m-1" id="sam_in{{ $i }}">{{ $sam[0] }}</pre>
+              <pre class="m-1" id="sam_in{{ $i }}">{{ $sam['in'] }}</pre>
               {{-- 样例输出 --}}
               <div class="border-top border-bottom pl-2 bg-light">
                 {{ __('main.Output') }}
                 <a href="javascript:" onclick="copy_text($('#sam_out{{ $i }}'))">{{ __('main.Copy') }}</a>
               </div>
-              <pre class="m-1" id="sam_out{{ $i }}">{{ $sam[1] }}</pre>
+              <pre class="m-1" id="sam_out{{ $i }}">{{ $sam['out'] }}</pre>
             </div>
           @endforeach
 
@@ -199,14 +206,14 @@
       </div>
 
       {{-- 讨论版（题库、开启讨论的竞赛、已结束的竞赛） --}}
-      {{-- @if (!isset($contest) || $contest->open_discussion || time() > strtotime($contest->end_time))
+      {{-- @if (!isset($contest) || $contest->enable_discussing || time() > strtotime($contest->end_time))
         <div class="mt-3">
           <x-problem.disscussions :problem-id="$problem->id" />
         </div>
       @endif --}}
 
       {{-- 已经AC的用户进行标签标记 --}}
-      @if (get_setting('problem_show_tag_collection'))
+      @if ((!isset($contest) && get_setting('problem_show_tag_collection')) || (isset($contest) && $contest->enable_tagging))
         <x-problem.tag-collection :problem-id="$problem->id" :tags="$tags" />
       @endif
 
@@ -216,7 +223,7 @@
       @endif
 
       {{-- 空白部分，使底部可以拉上来 --}}
-      <div class="blank-placeholder"></div>
+      <div style="width: 100%; height: 10rem;"></div>
 
     </div>
 
@@ -225,7 +232,7 @@
 
     <div id="right">
       {{-- 代码编辑框 --}}
-      <x-problem.code-editor :problem="$problem" :contest-id="$contest->id ?? null" :allow-lang="$contest->allow_lang ?? null" :num-samples="count($samples ?? [])" />
+      @livewire('problem.submitter', ['problem' => (array) $problem, 'contest_id' => $contest->id ?? null, 'allow_lang' => $contest->allow_lang ?? null])
     </div>
   </div>
 

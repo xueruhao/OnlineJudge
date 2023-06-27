@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * 获取当前项目的版本号，原理是读取文件`install/.version`首行，有缓存(每次重启时会自动清空)
@@ -44,6 +45,7 @@ function get_setting($key, $default = null, bool $update = false)
 }
 
 
+// ===================================== ip信息获取 ====================================
 // 获取用户真实ip（参考https://blog.csdn.net/m0_46266407/article/details/107222142）
 function get_client_real_ip()
 {
@@ -64,7 +66,7 @@ function get_client_real_ip()
 
 
 // 获取ip属地
-function getIpAddress(string $ip = '')
+function get_ip_address(string $ip = '')
 {
     try {
         $res = Http::timeout(1)->get('http://whois.pconline.com.cn/ip.jsp', ['ip' => $ip]);
@@ -76,9 +78,28 @@ function getIpAddress(string $ip = '')
             return 'Query failed'; // 接口通了，但没有正常返回
         }
     } catch (Exception $e) {
-        echo $e->getMessage();
+        // echo $e->getMessage();
         return 'Connection failed'; // 接口不通
     }
+}
+
+// ===================================== 文件操作 ====================================
+// 返回带时间戳的静态资源url
+function asset_ts($path)
+{
+    $ts = (string)filemtime(public_path($path));
+    return asset($path) . '?ts=' . $ts;
+}
+
+
+// 获取网站图标或logo
+function get_icon_url($filename = 'favicon')
+{
+    assert(in_array($filename, ['favicon', 'logo']));
+    if (Storage::exists("public/{$filename}.ico")) {
+        return asset_ts("storage/{$filename}.ico");
+    }
+    return asset_ts('favicon.ico');
 }
 
 
@@ -95,7 +116,7 @@ function testdata_path($path = null): string
 
 
 //读取一个文件夹下所有文件，返回路径列表
-function readAllFilesPath($dir_path): array
+function get_all_files_path($dir_path): array
 {
     clearstatcache(); //清除缓存
     $files = [];
@@ -110,58 +131,13 @@ function readAllFilesPath($dir_path): array
     return $files;
 }
 
-
-/**
- * 读取样例/测试文件
- * @param $problem_id
- * @param bool $from_sample
- * @return array  返回二维字符串数组(直接读取文件内容)，a[filename][.in/.out]=string
- */
-function read_problem_data($problem_id, $from_sample = true): array
-{
-    $samples = [];
-    $dir = testdata_path($problem_id . '/' . ($from_sample ? 'sample' : 'test'));
-    foreach (readAllFilesPath($dir) as $item) {
-        $name = pathinfo($item, PATHINFO_FILENAME);  //文件名
-        $ext = pathinfo($item, PATHINFO_EXTENSION);  //拓展名
-        if (!isset($samples[$name])) //发现新样本
-            $samples[$name] = ['', ''];
-        if ($ext === 'in')
-            $samples[$name][0] = file_get_contents($item);
-        if ($ext === 'out' || $ext === 'ans')
-            $samples[$name][1] = file_get_contents($item);
-    }
-    return $samples;
-}
-
-
-/**
- * 保存样例/测试到文件
- * @param $problem_id
- * @param $ins
- * @param $outs
- * @param bool $from_sample
- */
-function save_problem_data($problem_id, $ins, $outs, $from_sample = true)
-{
-    $dir = testdata_path($problem_id . '/' . ($from_sample ? 'sample' : 'test')); // 测试数据文件夹
-    foreach (readAllFilesPath($dir) as $item)
-        unlink($item); //删除原有文件
-    if (!is_dir($dir))
-        mkdir($dir, 0777, true);  // 文件夹不存在则创建
-    foreach ($ins as $i => $in)
-        file_put_contents(sprintf('%s/%s.in', $dir, $i), $in);
-    foreach ($outs as $i => $out)
-        file_put_contents(sprintf('%s/%s.out', $dir, $i), $out);
-}
-
-
+// ===================================== 字符串处理 ====================================
 //将一个数字题号转为大写字母 A~Z(0~25), 27, 28, 29, ...
-function index2ch(int $index)
+function index2ch(int $index): string
 {
     if ($index < 26)
         return sprintf("%s (%d)", chr($index + 65), $index + 1);
-    return $index + 1; //Z的下一题是27题
+    return (string)($index + 1); //Z的下一题是27题
 }
 
 
@@ -173,17 +149,17 @@ function index2ch(int $index)
  * 1000-1002
  * 1010
  * 1024 3
- * $special_rule = true 解析为:
+ * $special_rule = true 则解析为:
  * ['1000','1001','1002','1010','1024','1024','1024']
- * $special_rule = false 解析为:
+ * $special_rule = false 则单纯按行读取，解析为:
  * ['1000-1002', '1010', '1024 3']
  */
-function decode_str_to_array($text, $special_rule = true)
+function decode_str_to_array($text, $special_rule = true): array
 {
     if ($text == null)
         return [];
 
-    $rows = explode(PHP_EOL, $text); // 按行分割
+    $rows = explode(PHP_EOL, trim($text)); // 按行分割
     $data = [];
     foreach ($rows as $row) {
         $row = trim($row);

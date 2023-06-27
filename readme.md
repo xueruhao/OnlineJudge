@@ -1,26 +1,26 @@
-<h1 align="center">Ludong University Online Judge</h1>
+# Sparks of Fire Online Judge (SparkOJ / LDUOJ)
 
-> 鲁东大学程序设计在线测评系统与考试平台  
-> 开发内测：<http://47.104.232.254:8080>  
-> 官方网站：<https://icpc.ldu.edu.cn>  
-> 中文文档：<https://winterant.github.io/OnlineJudge>
+> A Single Spark Can Start A Prairie Fire  
 
-# 💡 快速了解
+<div align="center">
+  <img src="public/favicon.ico" width="120px"/>
+</div>
 
-+ 首页；展示公告/新闻、提交记录统计曲线、本周榜、上周榜；
-+ 评测；展示用户提交记录及其评测结果；
-+ 题库；展示所有题目，支持编程题、**代码填空**题；
-+ 竞赛；排名(ACM,OI)可封榜，支持**赛后补题榜**、发布公告、气球派送；
-+ 群组；按团队/班级组织用户，批量开设竞赛作为作业/课程习题；
-+ 排名；用户解题排行榜。
-+ 用户管理；支持批量生成账号、账号锁定、角色管理等；
-+ 题目管理；增删改查，支持导入与导出(兼容hustoj)等；
-+ 竞赛管理；增删查改；
-+ 群组管理：增删改查；
-+ 系统设置；修改网站名称、默认语言，打开/关闭全局功能等。
+English | [中文文档](https://winant.gitee.io/lduoj-docs/) | [Demo](http://47.104.232.254:8080)
 
-# 💝 致谢
+# 💡 Introduction
 
+- Support for multiple programming languages such as C/C++, Java, Python and Golang. Thank [go-judge](https://github.com/criyle/go-judge).
+- Support for multiple types of problems such as Programming and Fill in the Blanks with Code. (代码填空题).
+- Contest Rank supports for mode of ACM or IOI and supports for displaying submissions after end of the contest. (赛后补题榜).
+- Support for creating groups (including classes and courses) which organize users to participate in contests or assignments.
+- Support for one-click import and export of problems, compatible with [hustoj](https://github.com/zhblue/hustoj). (支持一键导入/导出题目，兼容hustoj).
+
+
+# 💝 Acknowledgements
+
+[go-judge](https://github.com/criyle/go-judge)  
+[zhblue/hustoj](https://github.com/zhblue/hustoj)  
 [laravel](https://laravel.com/)  
 [jquery-3.4.1](https://jquery.com/)  
 [bootstrap-material-design](https://fezvrasta.github.io/bootstrap-material-design/)  
@@ -31,9 +31,9 @@
 [highlight.js](https://highlightjs.org/)  
 [ckeditor-5](https://ckeditor.com/ckeditor-5/)  
 [MathJax](https://www.mathjax.org/)  
-[zhblue/hustoj](https://github.com/zhblue/hustoj)  
 
-# 📜 开源许可
+
+# 📜 License
 
 OnlineJudge is licensed under the
 **[GNU General Public License v3.0](./LICENSE)**.

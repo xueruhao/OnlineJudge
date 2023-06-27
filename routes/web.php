@@ -14,6 +14,13 @@
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+// ====================== Livewire Single Page =======================
+Route::namespace('\App\Http\Livewire')->group(function () {
+    // ================================ 提交记录 ================================
+    // Route::get('/solutions', Solution\Solutions::class)->name('solutions');
+    Route::get('/solutions/{id}', Solution\Solution::class)->name('solution');
+});
+
 
 Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-9]+', 'uid' => '[0-9]+'])->group(function () {
     // ================================ 用户认证路由 ================================
@@ -31,7 +38,6 @@ Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-
 
     // ================================ 提交记录 ================================
     Route::get('/solutions', 'SolutionController@solutions')->name('solutions');
-    Route::get('/solutions/{id}', 'SolutionController@solution')->name('solution');
     Route::get('/solutions/{id}/wrong_data/{type}', 'SolutionController@solution_wrong_data')->name('solution_wrong_data')->where(['type' => '(in|out)']);
 
 
@@ -71,11 +77,6 @@ Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-
             Route::get('contests/{id}/balloons', 'ContestController@balloons')->name('contest.balloons');
             Route::post('contests/{id}/deliver_ball/{bid}', 'ContestController@deliver_ball')->name('contest.deliver_ball');
         });
-        // todo 获取公告 需要定制api
-        Route::post('contests/{id}/get_notice', 'ContestController@get_notice')->name('contest.get_notice'); //获取一条公告
-        // todo: 添加公告、删除公告 需要定制api
-        Route::post('contests/{id}/edit_notice', 'ContestController@edit_notice')->name('contest.edit_notice')->middleware('Permission:admin.contest_notice.update'); //编辑/添加一条公告
-        Route::post('contests/{id}/delete_notice/{nid}', 'ContestController@delete_notice')->name('contest.delete_notice')->middleware('Permission:admin.contest_notice.delete'); //删除一条公告
     });
 
 
@@ -87,13 +88,13 @@ Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-
         Route::get('groups/{id}', 'GroupController@group')->name('group');
         Route::get('groups/{id}/solutions', 'GroupController@solutions')->name('group.solutions');
         Route::get('groups/{id}/members', 'GroupController@members')->name('group.members');
-        Route::get('groups/{id}/members/{uid}', 'GroupController@member')->name('group.member');
+        Route::get('groups/{id}/members/{username}', 'GroupController@member')->name('group.member');
     });
 
     // ================================ 用户（users） ================================
     Route::get('/standings', 'UserController@standings')->name('standings');
     Route::get('/users/{username}', 'UserController@user')->name('user');
-    Route::any('/users/{username}/edit', 'UserController@user_edit')->name('user_edit')->middleware('Permission:admin.user.update,users.{username}.id');
+    Route::any('/users/{username}/edit', 'UserController@edit')->name('user.edit')->middleware('Permission:admin.user.update,users.{username}.id');
     Route::any('/users/{username}/reset-password', 'UserController@password_reset')->name('password_reset')->middleware('Permission:admin.user.update,users.{username}.id');
 
 
@@ -117,11 +118,6 @@ Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-
         Route::post('user/update-revise', 'Admin\UserController@update_revise')->name('user.update_revise')->middleware('Permission:admin.user.update');
         Route::post('user/update-locked', 'Admin\UserController@update_locked')->name('user.update_locked')->middleware('Permission:admin.user.update');
 
-        // ====================== privileges；!!!已废弃!!! 未来版本权限改用spatie/laravel-permission）
-        Route::get('user/privileges', 'Admin\UserController@privileges')->name('user.privileges')->middleware('Permission:admin.user');
-        // Route::post('user/privilege/create', 'Admin\UserController@privilege_create')->name('user.privilege_create');
-        // Route::post('user/privilege/delete', 'Admin\UserController@privilege_delete')->name('user.privilege_delete');
-
         // ====================== 用户角色管理 （权限内置不可修改）spatie/laravel-permission. https://spatie.be/docs/laravel-permission/v5/basic-usage/basic-usage
         Route::get('user/roles', 'Admin\UserController@roles')->name('user.roles')->middleware('Permission:admin.user_role.view');
 
@@ -129,29 +125,18 @@ Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-
         Route::get('problems', 'Admin\ProblemController@list')->name('problem.list')->middleware('Permission:admin.problem.view');
 
         // ====================== Manage problem editor
-        Route::any('problem/add', 'Admin\ProblemController@add')->name('problem.add')->middleware('Permission:admin.problem.create');
-        Route::any('problems/{id}/update', 'Admin\ProblemController@update')->name('problem.update_withId')->middleware('Permission:admin.problem.update,problems.{id}.creator');
-        // todo 修改hidden需要定制api
-        Route::post('problem/update-hidden', 'Admin\ProblemController@update_hidden')->name('problem.update_hidden')->middleware('Permission:admin.problem.update');
-        // todo 获取spj需要定制api
-        Route::get('problems/{id}/get_spj', 'Admin\ProblemController@get_spj')->name('problem.get_spj')->middleware('Permission:admin.problem.view');
+        Route::get('problem/create', 'Admin\ProblemController@create')->name('problem.create')->middleware('Permission:admin.problem.create');
+        Route::get('problems/{id}/update', 'Admin\ProblemController@update')->name('problem.update')->middleware('Permission:admin.problem.update,problems.{id}.user_id');
 
         // ====================== Manage problem tag
         Route::get('problem/tags', 'Admin\ProblemController@tags')->name('problem.tags')->middleware('Permission:admin.problem_tag.view');
-        // todo 删除tag  需要定制api
-        Route::post('problem/tags/delete', 'Admin\ProblemController@tag_delete')->name('problem.tag_delete')->middleware('Permission:admin.problem_tag.delete');
         // tag_pool
         Route::get('problem/tag_pool', 'Admin\ProblemController@tag_pool')->name('problem.tag_pool')->middleware('Permission:admin.problem_tag.view');
-        // todo 删除、修改  需要定制api
-        Route::post('problem/tag_pool/delete', 'Admin\ProblemController@tag_pool_delete')->name('problem.tag_pool_delete')->middleware('Permission:admin.problem_tag.delete');
-        Route::post('problem/tag_pool/hidden', 'Admin\ProblemController@tag_pool_hidden')->name('problem.tag_pool_hidden')->middleware('Permission:admin.problem_tag.update');
 
         // ====================== Manage problem data
         Route::get('problem/test-data', 'Admin\ProblemController@test_data')->name('problem.test_data')->middleware('Permission:admin.problem_data.view');
         Route::post('problem/upload-data', 'Admin\ProblemController@upload_data')->name('problem.upload_data')->middleware('Permission:admin.problem_data.create');
-        Route::post('problem/get-data', 'Admin\ProblemController@get_data')->name('problem.get_data')->middleware('Permission:admin.problem_data.view');
         Route::post('problem/update-data', 'Admin\ProblemController@update_data')->name('problem.update_data')->middleware('Permission:admin.problem_data.update');
-        Route::post('problem/delete-data', 'Admin\ProblemController@delete_data')->name('problem.delete_data')->middleware('Permission:admin.problem_data.delete');
 
         // ====================== Manage problem import export
         Route::get('problem/import_export', 'Admin\ProblemController@import_export')->name('problem.import_export')->middleware('Permission:admin.problem_xml.view');
@@ -178,7 +163,7 @@ Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-
         // ===================== Manage group
         Route::get('groups', 'Admin\GroupController@list')->name('group.list')->middleware('Permission:admin.group.view');
         Route::get('group/create', 'Admin\GroupController@create')->name('group.create')->middleware('Permission:admin.group.create');
-        Route::get('groups/{id}/edit', 'Admin\GroupController@edit')->name('group.edit')->middleware('Permission:admin.group.update,groups.{id}.creator');
+        Route::get('groups/{id}/edit', 'Admin\GroupController@edit')->name('group.edit')->middleware('Permission:admin.group.update,groups.{id}.user_id');
 
         // ===================== settings
         Route::get('/settings', 'Admin\HomeController@settings')->name('settings')->middleware('Permission:admin.setting.view');

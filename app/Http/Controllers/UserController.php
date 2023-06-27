@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -41,10 +43,19 @@ class UserController extends Controller
             $user->class = '****';
             $user->nick = '***';
         }
-        return view('auth.user', compact('user', 'problems_solved'));
+
+        // 当前用户已加入的群组：
+        $groups = DB::table('groups as g')
+            ->join('group_users as gu', 'gu.group_id', 'g.id')
+            ->join('users as u', 'u.id', 'g.user_id')
+            ->select(['g.id', 'g.name', 'g.teacher', 'g.class', 'g.type', 'u.username as creator', 'g.hidden'])
+            ->where('gu.user_id', $user->id)
+            ->where('gu.identity', '>=', 2)
+            ->paginate(4);
+        return view('user.user', compact('user', 'groups', 'problems_solved'));
     }
 
-    public function user_edit(Request $request, $username)
+    public function edit(Request $request, $username)
     {
         $user = User::where('username', $username)->first(); // 要修改的user
 
@@ -53,7 +64,7 @@ class UserController extends Controller
 
         // 提供修改界面
         if ($request->isMethod('get')) {
-            return view('auth.user_edit', compact('user'));
+            return view('user.edit', compact('user'));
         }
 
         // 提交修改资料
@@ -101,7 +112,13 @@ class UserController extends Controller
                 ->update(['password' => Hash::make($user['new_password']), 'updated_at' => date('Y-m-d H:i:s')]);
             if ($ret != 1) //失败
                 return view('message', ['msg' => trans('sentence.Operation failed')]);
-            Auth::logoutOtherDevices($user['new_password']); //其他设备全部失效
+
+            try {
+                Auth::logoutOtherDevices($user['new_password']); //其他设备全部失效
+            } catch (Exception $e) {
+                Log::error('Failed to logout other devices when modify password');
+                Log::error($e->getMessage());
+            }
             return view('message', ['success' => true, 'msg' => trans('passwords.reset')]);
         }
     }
@@ -109,23 +126,23 @@ class UserController extends Controller
     public function standings()
     {
         // todo
-        $timediff = isset($_GET['range']) && $_GET['range'] != '0'
-            ? sprintf(' and TIMESTAMPDIFF(%s,submit_time,now())=0', $_GET['range']) : '';
+        $timediff = request()->has('range') && request('range') != '0'
+            ? sprintf(' and TIMESTAMPDIFF(%s,submit_time,now())=0', request('range')) : '';
 
         $users = DB::table('users')->select([
             'username', 'nick', 'solved', 'accepted', 'submitted'
         ])
-            ->when($_GET['kw'] ?? false, function ($q) {
+            ->when(request('kw') ?? false, function ($q) {
                 $q->where(function ($q) {
-                    $q->where('username', 'like', $_GET['kw'] . '%')
-                        ->orWhere('nick', 'like', $_GET['kw'] . '%')
-                        ->orWhere('school', 'like', $_GET['kw'] . '%')
-                        ->orWhere('class', 'like', $_GET['kw'] . '%');
+                    $q->where('username', 'like', '%' . request('kw') . '%')
+                        ->orWhere('nick', 'like', '%' . request('kw') . '%')
+                        ->orWhere('school', 'like', '%' . request('kw') . '%')
+                        ->orWhere('class', 'like', '%' . request('kw') . '%');
                 });
             })
             ->orderByDesc('solved')
             ->orderBy('submitted')
-            ->paginate($_GET['perPage'] ?? 50);
+            ->paginate(request('perPage') ?? 50);
 
         // 对访客隐藏用户信息
         if (!Auth::check() && !get_setting('display_complete_standings')) {
