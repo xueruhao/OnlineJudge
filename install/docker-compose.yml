@@ -8,7 +8,7 @@ x-logging: &default-logging
 
 services:
   web:
-    image: winterant/lduoj:2.2
+    image: winterant/lduoj:2.2.7
     container_name: lduoj-web
     restart: always
     ports:
@@ -19,7 +19,7 @@ services:
       - ./data/web/storage:/app/storage
 
   go-judge:
-    image: winterant/go-judge:1.0
+    image: winterant/go-judge:1.1
     container_name: lduoj-go-judge
     restart: always
     shm_size: 512m
@@ -31,7 +31,7 @@ services:
       - ./data/web/storage/app/data:/testdata:ro
 
   mysql:
-    image: docker.io/mysql:8.0
+    image: docker.io/mysql:8.0.36
     container_name: lduoj-mysql
     restart: always
     security_opt:
@@ -51,7 +51,7 @@ services:
       - ./data/mysql:/var/lib/mysql
 
   redis:
-    image: redis:7.0
+    image: docker.io/redis:7.0.15
     container_name: lduoj-redis
     restart: always
     env_file: lduoj.conf

@@ -5,6 +5,7 @@ namespace App\Http\Helpers;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class ProblemHelper
 {
@@ -115,6 +116,28 @@ class ProblemHelper
     }
 
     /**
+     * 将测试数据文件拷贝到指定题目的测试数据文件夹中
+     * @param $problem_id
+     * @param array $filepathList  列表[文件绝对路径]
+     * @param bool $clear_old 是否清空原有文件再存入新文件
+     */
+    public static function saveTestdataFromFile($problem_id, array $filepathList, bool $clear_old = false)
+    {
+        $dir = testdata_path($problem_id . '/test'); // 测试数据文件夹
+        if (!is_dir($dir))
+            mkdir($dir, 0777, true);  // 文件夹不存在则创建
+        if ($clear_old) { // 清除旧文件
+            foreach (get_all_files_path($dir) as $item)
+                unlink($item); //删除原有文件
+        }
+        // 挨个保存文件
+        foreach ($filepathList as $filepath){
+            $filename = basename($filepath);
+            File::copy($filepath, $dir.'/'.$filename);
+        }
+    }
+
+    /**
      * 读取某题的spj代码
      */
     public static function readSpj($problem_id)
@@ -196,7 +219,7 @@ class ProblemHelper
         $key = sprintf('problem:%d:user:%d:result', $problem_id, $user_id ?? Auth::id());
         if ($contest_id)
             $key = "contest:{$contest_id}:" . $key;
-        CacheHelper::has_key_with_autoclear_if_rejudged($key); // 若发生了重判，会强制清除缓存，然后下面重新查库
+        CacheHelper::forgetIfRejudged($key); // 若发生了重判，会强制清除缓存，然后下面重新查库
         if (!Cache::has($key)) {
             $result = DB::table('solutions')
                 ->when($contest_id, function ($q) use ($contest_id) {

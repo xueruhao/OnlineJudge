@@ -11,8 +11,7 @@
     {{-- 编程题可以选择语言 --}}
     <div class="flex-nowrap mr-3">
       <span class="mr-2">{{ __('main.Language') }}:</span>
-      <select id="language{{ $domId }}" name="{{ $htmlPropNameOfLang }}" class="px-3 border"
-        style="text-align-last: center;border-radius: 4px;">
+      <select id="language{{ $domId }}" name="{{ $htmlPropNameOfLang }}" class="px-3 border" style="text-align-last: center;border-radius: 4px;">
         @foreach ($languages as $id => $name)
           <option value="{{ $id }}">{{ $name }}</option>
         @endforeach
@@ -21,12 +20,10 @@
 
     {{-- 编程题可以提交文件 --}}
     <div class="flex-nowrap mr-3">
-      <a id="btn_file{{ $domId }}" class="btn btn-sm btn-info btn-outline-info m-0 px-1" href="javascript:"
-        onclick="$('#file{{ $domId }}').click()"
-        style="border-radius: 4px;font-size:0.6rem;padding-top:0.18rem!important;padding-bottom:0.18rem!important">{{ __('main.Upload File') }}</a>
+      <a id="btn_file{{ $domId }}" class="btn btn-sm btn-info btn-outline-info m-0 px-2" href="javascript:" onclick="$('#file{{ $domId }}').click()"
+         style="border-radius: 4px;font-size:0.8rem;padding-top:0.18rem!important;padding-bottom:0.18rem!important">{{ __('main.Upload File') }}</a>
       {{-- <i class="fa fa-file-code-o fa-lg" aria-hidden="true"></i> --}}
-      <input type="file" class="form-control-file" id="file{{ $domId }}"
-        accept=".txt .c, .cc, .cpp, .java, .py" hidden />
+      <input type="file" class="form-control-file" id="file{{ $domId }}" accept=".txt, .c, .cc, .cpp, .java, .py, .go" hidden/>
     </div>
 
     {{-- 编辑框主题 --}}
@@ -40,8 +37,14 @@
   </div>
 
   {{-- 代码框 --}}
-  <div id="code_div{{ $domId }}" class="border" style="flex:1;height=1">
-    <textarea id="codeeditor{{ $domId }}" name="{{ $htmlPropNameOfCode }}">{{ $code }}</textarea>
+  @if($banCodeEditor)
+    <div class=" alert alert-warning p-3 m-1">
+      <strong>当前网页代码编辑器已被禁用，你必须点击上方「上传文件」来提交代码。</strong>
+      为了避免同学们过度依赖网页代码编辑器，请通过Dev-C++、CodeBlocks、VS Code等专业编程软件编写代码和运行测试。
+    </div>
+  @endif
+  <div id="code_div{{ $domId }}" class="border" style="flex:1">
+    <textarea id="codeeditor{{ $domId }}" name="{{ $htmlPropNameOfCode }}" style="display: none">{{ $code }}</textarea>
   </div>
 
 
@@ -57,6 +60,7 @@
         matchBrackets: true, //括号匹配
         autoCloseBrackets: true, //自动补全括号
         theme: 'idea', // 编辑器主题
+        readOnly: {{ $banCodeEditor ? 'true' : 'false' }},
       });
 
       // 代码编辑框高度
@@ -136,8 +140,7 @@
 
       // ======================== 初始化填充代码 ===============================
       let solution_code = $('#codeeditor{{ $domId }}').val() // 已有的代码
-      let local_code_key =
-        "code_user{{ Auth::id() ?? null }}_url{{ url()->current() }}"
+      let local_code_key = "code_user{{ Auth::id() ?? null }}{{ $contestId ? '_contest' . $contestId : '' }}_problem{{ $problemId }}"
       if (solution_code != '')
         code_editor.setValue(solution_code) // 后端有代码
       else if (code_editor.getValue() == '' && localStorage.getItem(local_code_key)) // 有本地缓存的代码
@@ -149,8 +152,7 @@
       code_editor.on('change', (instance, change) => {
         // 自动补全的时候，也会触发change事件，所有判断一下，以免死循环，正则是为了不让空格、换行之类的也提示
         // 通过change对象你可以自定义一些规则去判断是否提示
-        if (change.origin !== 'complete' && change.text.length < 2 && /\w|\./g.test(change.text[
-            0])) {
+        if (change.origin !== 'complete' && change.text.length < 2 && /\w|\./g.test(change.text[0])) {
           instance.showHint()
         }
         // 代码修改时顺便保存本地，防止丢失

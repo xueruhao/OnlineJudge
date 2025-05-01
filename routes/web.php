@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 // ====================== Livewire Single Page =======================
-Route::namespace('\App\Http\Livewire')->group(function () {
+Route::namespace('\App\Livewire')->group(function () {
     // ================================ 提交记录 ================================
     // Route::get('/solutions', Solution\Solutions::class)->name('solutions');
     Route::get('/solutions/{id}', Solution\Solution::class)->name('solution');
@@ -75,6 +75,7 @@ Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-
         Route::get('contests/{id}/private_rank', 'ContestController@rank')->name('contest.private_rank'); // 私有榜单
         Route::middleware('Permission:admin.contest_balloon')->group(function () {
             Route::get('contests/{id}/balloons', 'ContestController@balloons')->name('contest.balloons');
+            // todo 气球派送页面使用livewire重写
             Route::post('contests/{id}/deliver_ball/{bid}', 'ContestController@deliver_ball')->name('contest.deliver_ball');
         });
     });
@@ -94,24 +95,24 @@ Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-
     // ================================ 用户（users） ================================
     Route::get('/standings', 'UserController@standings')->name('standings');
     Route::get('/users/{username}', 'UserController@user')->name('user');
-    Route::any('/users/{username}/edit', 'UserController@edit')->name('user.edit')->middleware('Permission:admin.user.update,users.{username}.id');
+    Route::get('/users/{username}/edit', 'UserController@edit')->name('user.edit')->middleware('Permission:admin.user.update,users.{username}.id');
+    Route::post('/users/{username}', 'UserController@edit')->name('user.update')->middleware('Permission:admin.user.update,users.{username}.id');
     Route::any('/users/{username}/reset-password', 'UserController@password_reset')->name('password_reset')->middleware('Permission:admin.user.update,users.{username}.id');
 
 
     // ================================ Administration 后台管理 ================================
     Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-        // ===================== Admin Home
+        // =========================== Admin Home ====================================
         Route::get('/', 'Admin\HomeController@home')->name('home')->middleware('Permission:admin.view');
 
-        // ===================== Manage notice
-        Route::get('notices', 'Admin\NoticeController@list')->name('notice.list')->middleware('Permission:admin.notice.view');
-        Route::any('notice/add', 'Admin\NoticeController@add')->name('notice.add')->middleware('Permission:admin.notice.create');
-        Route::any('notices/{id}/update', 'Admin\NoticeController@update')->name('notice.update')->middleware('Permission:admin.notice.update,notices.{id}.user_id');
-        // todo 删除、更新公告 需要定制api
-        Route::post('notice/delete', 'Admin\NoticeController@delete')->name('notice.delete')->middleware('Permission:admin.notice.delete');
-        Route::post('notice/update-state', 'Admin\NoticeController@update_state')->name('notice.update_state')->middleware('Permission:admin.notice.update');
 
-        // ===================== Manage user
+        // ========================= Manage notice ==================================
+        Route::get('notices', 'Admin\NoticeController@list')->name('notice.list')->middleware('Permission:admin.notice.view');
+        Route::get('notice/create', 'Admin\NoticeController@create')->name('notice.create')->middleware('Permission:admin.notice.create');
+        Route::get('notices/{id}/update', 'Admin\NoticeController@update')->name('notice.update')->middleware('Permission:admin.notice.update,notices.{id}.user_id');
+
+
+        // ========================= Manage user ===========================
         Route::get('users', 'Admin\UserController@list')->name('user.list')->middleware('Permission:admin.user.view');
         Route::get('user/create', 'Admin\UserController@create')->name('user.create')->middleware('Permission:admin.user.create');
         Route::get('user/reset_password', 'Admin\UserController@reset_password')->name('user.reset_password')->middleware('Permission:admin.user.update');
@@ -135,13 +136,9 @@ Route::middleware([])->where(['id' => '[0-9]+', 'bid' => '[0-9]+', 'nid' => '[0-
 
         // ====================== Manage problem data
         Route::get('problem/test-data', 'Admin\ProblemController@test_data')->name('problem.test_data')->middleware('Permission:admin.problem_data.view');
-        Route::post('problem/upload-data', 'Admin\ProblemController@upload_data')->name('problem.upload_data')->middleware('Permission:admin.problem_data.create');
-        Route::post('problem/update-data', 'Admin\ProblemController@update_data')->name('problem.update_data')->middleware('Permission:admin.problem_data.update');
 
         // ====================== Manage problem import export
         Route::get('problem/import_export', 'Admin\ProblemController@import_export')->name('problem.import_export')->middleware('Permission:admin.problem_xml.view');
-        Route::post('problem/import', 'Admin\ProblemController@import')->name('problem.import')->middleware('Permission:admin.problem_xml.import');
-        Route::post('problem/export', 'Admin\ProblemController@export')->name('problem.export')->middleware('Permission:admin.problem_xml.export');
 
         // ====================== Manage solution rejudge
         Route::any('solution/rejudge', 'Admin\SolutionController@rejudge')->name('solution.rejudge')->middleware('Permission:admin.solution.rejudge');

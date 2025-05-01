@@ -6,7 +6,7 @@
   <img src="public/favicon.ico" width="120px"/>
 </div>
 
-English | [中文文档](https://winant.gitee.io/lduoj-docs/) | [Demo](http://47.104.232.254:8080)
+English | [中文文档](https://docs.lduoj.cn) | [开发日志](https://docs.qq.com/sheet/DR25EbEFCQXhkR2dk)
 
 # 💡 Introduction
 

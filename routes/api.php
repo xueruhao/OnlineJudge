@@ -13,6 +13,23 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// 访问/api时返回的提示信息
+Route::get("/", function () {
+    return [
+        'msg' => 'Welcome to use lduoj API! This is a GET request. ' .
+            'In principle, the return format of lduoj api is consistent, as shown in the value of `response_example`.',
+        'response_example' => [
+            'ok' => 1,
+            'msg' => 'Request processed successfully!',
+            'data' => [
+                'current_time' => date('Y-m-d H:i:s'),
+                'other_data' => 'Hello world'
+            ]
+        ]
+    ];
+});
+
+
 Route::namespace('Api')->name('api.')->where(['id' => '[0-9]+', 'uid' => '[0-9]+', 'shift' => '^(\-|\+)?[0-9]+'])->group(function () {
     // ========================= CK editor upload image API =========================
     /**
@@ -63,6 +80,14 @@ Route::namespace('Api')->name('api.')->where(['id' => '[0-9]+', 'uid' => '[0-9]+
     // =====================================================================
     // ============================ admin ==================================
     Route::middleware(['auth'])->group(function () {
+        // Manage notice route('api.admin.notice.*')
+        Route::post('notices', 'NoticeController@create')->name('admin.notice.create')->middleware('Permission:admin.notice.create');
+        Route::put('notices/{id}', 'NoticeController@update')->name('admin.notice.update')->middleware('Permission:admin.notice.update,notices.{id}.user_id');
+        Route::patch('notices/state/batch', 'NoticeController@update_state_batch')->name('admin.notice.update_state_batch')->middleware('Permission:admin.notice.update');
+        Route::delete('notices/{id}', 'NoticeController@delete')->name('admin.notice.delete')->middleware('Permission:admin.notice.delete');
+        Route::delete('notices/batch', 'NoticeController@delete_batch')->name('admin.notice.delete_batch')->middleware('Permission:admin.notice.delete');
+
+
         // Manage user: route('api.admin.user.*')
         Route::post('admin/user/create/batch', 'UserController@create_batch')->name('admin.user.create_batch')->middleware('Permission:admin.user.create');
         Route::get('admin/user/create/download', 'UserController@download_created_users_csv')->name('admin.user.download_created_users_csv')->middleware('Permission:admin.user.create');
@@ -77,23 +102,29 @@ Route::namespace('Api')->name('api.')->where(['id' => '[0-9]+', 'uid' => '[0-9]+
         Route::post('admin/user/roles/{id}/users/batch', 'UserController@role_add_users')->name('admin.user.role_add_users')->middleware('Permission:admin.user_role.update');
         Route::delete('admin/user/roles/{id}/users/{uid}', 'UserController@role_delete_user')->name('admin.user.role_delete_user')->middleware('Permission:admin.user_role.delete');
 
+
         // Manage problem: route('api.admin.problem.*')
         Route::post('admin/problems', 'ProblemController@create')->name('admin.problem.create')->middleware('Permission:admin.problem.create');
         Route::patch('admin/problems/{id}', 'ProblemController@update')->name('admin.problem.update')->middleware('Permission:admin.problem.update');
         Route::patch('admin/problems/batch-to-one', 'ProblemController@update_batch_to_one')->name('admin.problem.update_batch_to_one')->middleware('Permission:admin.problem.update');
         Route::delete('admin/problems/{id}', 'ProblemController@delete')->name('admin.problem.delete')->middleware('Permission:admin.problem.delete'); // 创建人无法删除
-        Route::get('admin/problem/export/download', 'ProblemController@download_exported_xml')->name('admin.problem.download_exported_xml')->middleware('Permission:admin.problem_xml.export');
-        Route::delete('admin/problem/export/clear', 'ProblemController@clear_exported_xml')->name('admin.problem.clear_exported_xml')->middleware('Permission:admin.problem_xml');
+
+        // Manage problem's exporting and importing
+        Route::post('problem/import', 'ProblemController@import')->name('admin.problem.import')->middleware(['Permission:admin.problem_xml.import'])->withoutMiddleware(['throttle:60,1']); // 由于分片上传,取消请求频率限制
+        Route::get('admin/problem/export/download', 'ProblemController@download_exported_xml')->name('admin.problem.download_exported_xml')->middleware(['Permission:admin.problem_xml.export']);
 
         // Manage problem test data
         Route::get('admin/problems/{id}/data/{filename}', 'ProblemController@get_data')->name('admin.problem.get_data')->middleware('Permission:admin.problem_data.view');
         Route::delete('admin/problems/{id}/data/batch', 'ProblemController@delete_data')->name('admin.problem.delete_data')->middleware('Permission:admin.problem_data.delete');
+        Route::post('problem/upload-data', 'ProblemController@upload_data')->name('admin.problem.upload_data')->middleware('Permission:admin.problem_data.create')->withoutMiddleware(['throttle:60,1']); // 由于分片上传,取消请求频率限制;
+        Route::post('problem/update-data', 'ProblemController@update_data')->name('admin.problem.update_data')->middleware('Permission:admin.problem_data.update');
 
         // Manage tag and tag_pool
         Route::delete('problem/tags/batch', 'ProblemController@tag_delete_batch')->name('admin.problem.tag_delete_batch')->middleware('Permission:admin.problem_tag.delete');
         Route::patch('problem/tag_pool/{id}', 'ProblemController@tag_pool_update')->name('admin.problem.tag_pool_update')->middleware('Permission:admin.problem_tag.update');
         Route::patch('problem/tag_pool/batch', 'ProblemController@tag_pool_update_batch')->name('admin.problem.tag_pool_update_batch')->middleware('Permission:admin.problem_tag.update');
         Route::delete('problem/tag_pool/batch', 'ProblemController@tag_pool_delete_batch')->name('admin.problem.tag_pool_delete_batch')->middleware('Permission:admin.problem_tag.delete');
+
 
         // Manage contest: route('api.admin.contest.*')
         Route::delete('admin/contests/{id}', 'ContestController@delete')->name('admin.contest.delete')->middleware('Permission:admin.contest.delete');
@@ -110,6 +141,7 @@ Route::namespace('Api')->name('api.')->where(['id' => '[0-9]+', 'uid' => '[0-9]+
         Route::patch('admin/contest-categaries/{id}', 'ContestController@update_contest_cate')->name('admin.contest.update_contest_cate')->middleware('Permission:admin.contest_cate.update');
         Route::delete('admin/contest-categaries/{id}', 'ContestController@delete_contest_cate')->name('admin.contest.delete_contest_cate')->middleware('Permission:admin.contest_cate.delete');
         Route::patch('admin/contest-categaries/{id}/order/{shift}', 'ContestController@update_contest_cate_order')->name('admin.contest.update_contest_cate_order')->middleware('Permission:admin.contest_cate.update');
+
 
         // Manage group: route('api.admin.group.*')
         Route::post('admin/groups', 'GroupController@create')->name('admin.group.create')->middleware('Permission:admin.group.create');
@@ -130,6 +162,7 @@ Route::namespace('Api')->name('api.')->where(['id' => '[0-9]+', 'uid' => '[0-9]+
         Route::get('admin/groups/{id}/members/{username}/archive', 'GroupController@get_archive')->name('admin.group.get_archive')->middleware('Permission:admin.group.view,groups.{id}.user_id');
         Route::get('admin/groups/{id}/members/{username}/archive-history', 'GroupController@get_archive_history')->name('admin.group.get_archive_history')->middleware('Permission:admin.group.view,groups.{id}.user_id');
         Route::patch('admin/groups/{id}/members/{username}', 'GroupController@update_archive')->name('admin.group.update_archive')->middleware('Permission:admin.group.update,groups.{id}.user_id');
+
 
         // settings
         Route::patch('admin/settings', 'SettingController@settings')->name('admin.settings')->middleware('Permission:admin.setting.update');
